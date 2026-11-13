@@ -2,7 +2,7 @@
 
 App web offline (PWA) para gestionar una explotación agrícola, ganadera y apícola: parcelas y mapa (PNOA, Catastro, SIGPAC), almacén, partes de trabajo, taller, combustible, ventas y facturas, jornada, agenda, informes PDF y exportaciones oficiales. Los datos se guardan en el propio dispositivo y, si se activa, se sincronizan con Supabase.
 
-**App publicada:** https://alejandragri.github.io/agrior/
+**App publicada:** https://alejandragri.github.io/AGRIOR/
 
 ## Instalar en el móvil
 
