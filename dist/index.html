@@ -2224,40 +2224,131 @@ function pacCsv(txt){
   if (c !== "" || f.length) { f.push(c); filas.push(f); }
   return filas;
 }
-/* Texto de un PDF (solo si el PDF trae el texto con codificación sencilla) */
+/* Texto de un PDF: recorre las páginas, traduce las fuentes (ToUnicode) y reconstruye las filas por su posición */
 async function pacPdf(buf){
-  const u = new Uint8Array(buf), s = new TextDecoder("latin1").decode(u);
-  const re = /stream\r?\n/g; let m, out = [];
-  while ((m = re.exec(s))) {
-    const ini = m.index + m[0].length, fin = s.indexOf("endstream", ini); if (fin < 0) break;
-    const dict = s.slice(Math.max(0, s.lastIndexOf("<<", m.index - 1) - 2), m.index);
-    const ln = dict.match(/\/Length\s+(\d+)(?!\s+\d+\s+R)/);
-    let data = u.subarray(ini, ln && ini + Number(ln[1]) <= fin ? ini + Number(ln[1]) : fin);
-    if (/FlateDecode/.test(dict)) { try { data = await pacInflar(data, false); } catch(e) { re.lastIndex = fin; continue; } }
-    else if (/Filter/.test(dict)) { re.lastIndex = fin; continue; }
-    const c = new TextDecoder("latin1").decode(data);
-    if (/\bBT\b/.test(c)) out.push(pacPdfTexto(c));
-    re.lastIndex = fin;
+  const u = new Uint8Array(buf), s = new TextDecoder("latin1").decode(u), L1 = b => new TextDecoder("latin1").decode(b);
+  const objs = {}, re = /(\d+)\s+(\d+)\s+obj\b/g; let m;
+  while ((m = re.exec(s))) objs[m[1]] = m.index + m[0].length;
+  const crudo = {};
+  const leer = async n => {
+    if (crudo[n]) return crudo[n];
+    if (objs[n] == null) return {d: ""};
+    const ini = objs[n], fe = s.indexOf("endobj", ini), body = s.slice(ini, fe < 0 ? undefined : fe), k = body.search(/stream\r?\n/);
+    if (k < 0) return crudo[n] = {d: body};
+    const d = body.slice(0, k), st = ini + k + body.slice(k).match(/stream\r?\n/)[0].length;
+    let ln = d.match(/\/Length\s+(\d+)(\s+\d+\s+R)?/), len = null;
+    if (ln) len = ln[2] ? Number((await leer(ln[1])).d.trim()) : Number(ln[1]);
+    const fin = s.indexOf("endstream", st);
+    let data = u.subarray(st, len && st + len <= fin + 2 ? st + len : fin);
+    if (/FlateDecode/.test(d)) { try { data = await pacInflar(data, false); } catch(e) { data = null; } } else if (/\/Filter/.test(d)) data = null;
+    return crudo[n] = {d, data};
+  };
+  /* Objetos guardados dentro de «object streams» (PDF 1.5+) */
+  for (const n of Object.keys(objs)) {
+    const ini = objs[n]; if (!/\/Type\s*\/ObjStm/.test(s.slice(ini, ini + 300))) continue;
+    const o = await leer(n); if (!o.data) continue;
+    const t = L1(o.data), first = Number(o.d.match(/\/First\s+(\d+)/)?.[1]), nn = Number(o.d.match(/\/N\s+(\d+)/)?.[1]);
+    const h = t.slice(0, first).trim().split(/\s+/).map(Number);
+    for (let i = 0; i < nn; i++) { const num = h[2 * i], off = first + h[2 * i + 1], fin = i + 1 < nn ? first + h[2 * i + 3] : t.length; if (objs[num] == null || !crudo[num]) crudo[num] = {d: t.slice(off, fin)}; }
+  }
+  const ref = d => d.match(/^\s*(\d+)\s+\d+\s+R/)?.[1];
+  const val = async (d, clave) => { const i = d.search(new RegExp("/" + clave + "\\b")); if (i < 0) return null; const r = d.slice(i + clave.length + 1); const n = ref(r); if (n) return (await leer(n)).d; if (r.trim().startsWith("<<")) { let p = 0, j = r.indexOf("<<"); for (; j < r.length; j++) { if (r.startsWith("<<", j)) { p++; j++; } else if (r.startsWith(">>", j)) { p--; j++; if (!p) break; } } return r.slice(r.indexOf("<<"), j + 1); } return r; };
+  /* Fuentes: nombre -> {bytes por carácter, tabla} */
+  const cmaps = {};
+  const cmap = async n => {
+    if (cmaps[n]) return cmaps[n]; const o = await leer(n); const t = o.data ? L1(o.data) : ""; const map = {}; let bytes = 1;
+    const cs = t.match(/begincodespacerange\s*<([0-9A-Fa-f]+)>/); if (cs) bytes = cs[1].length / 2;
+    const uni = h => { let r = ""; for (let i = 0; i + 3 < h.length + 1; i += 4) r += String.fromCharCode(parseInt(h.substr(i, 4), 16)); return r; };
+    for (const bl of t.match(/beginbfchar[\s\S]*?endbfchar/g) || []) for (const x of bl.matchAll(/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g)) map[parseInt(x[1], 16)] = uni(x[2]);
+    for (const bl of t.match(/beginbfrange[\s\S]*?endbfrange/g) || []) for (const x of bl.matchAll(/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*(<([0-9A-Fa-f]+)>|\[([^\]]*)\])/g)) {
+      const a = parseInt(x[1], 16), b = parseInt(x[2], 16);
+      if (x[4]) { const base = parseInt(x[4], 16); for (let c = a; c <= b && c - a < 65536; c++) map[c] = String.fromCharCode(base + c - a); }
+      else (x[5].match(/<([0-9A-Fa-f]+)>/g) || []).forEach((h, i) => map[a + i] = uni(h.slice(1, -1)));
+    }
+    return cmaps[n] = {bytes, map};
+  };
+  const fuentes = async res => {
+    const F = {}; const fd = res ? await val(res, "Font") : null; if (!fd) return F;
+    for (const x of fd.matchAll(/\/([^\s/<>\[\]()]+)\s+(\d+)\s+\d+\s+R/g)) {
+      const fo = (await leer(x[2])).d; const tu = fo.match(/\/ToUnicode\s+(\d+)\s+\d+\s+R/);
+      const f = tu ? {...await cmap(tu[1])} : {bytes: /Identity-H/.test(fo) ? 2 : 1, map: null};
+      /* Anchos de letra, para saber dónde acaba cada trozo de texto */
+      const W = {}; let dw = 500;
+      const arr = async (d, k) => { const v = await val(d, k); if (!v) return null; const n = ref(v); return n ? (await leer(n)).d : v; };
+      const desc = (await val(fo, "DescendantFonts")) || "", dn = desc.match(/(\d+)\s+\d+\s+R/)?.[1];
+      if (dn) { const dd = (await leer(dn)).d; dw = Number(dd.match(/\/DW\s+(\d+)/)?.[1] || 1000); const w = await arr(dd, "W");
+        if (w) { const tk = w.replace(/^[^\[]*\[/, "").match(/\[|\]|-?\d*\.?\d+/g) || []; let i = 0;
+          while (i < tk.length) { const c0 = Number(tk[i]); if (isNaN(c0)) { i++; continue; } if (tk[i + 1] === "[") { let j = i + 2, c = c0; while (tk[j] !== "]" && j < tk.length) W[c++] = Number(tk[j++]); i = j + 1; } else { const c1 = Number(tk[i + 1]), wv = Number(tk[i + 2]); for (let c = c0; c <= c1 && c - c0 < 65536; c++) W[c] = wv; i += 3; } } } }
+      else { const fc = Number(fo.match(/\/FirstChar\s+(\d+)/)?.[1] || 0), w = await arr(fo, "Widths"); if (w) (w.match(/-?\d*\.?\d+/g) || []).forEach((v, i) => W[fc + i] = Number(v)); }
+      f.W = W; f.dw = dw; F[x[1]] = f;
+    }
+    return F;
+  };
+  /* Páginas en orden */
+  const paginas = [], visto = new Set();
+  const recorrer = async n => { if (visto.has(n)) return; visto.add(n); const d = (await leer(n)).d; if (/\/Type\s*\/Pages\b/.test(d)) { const k = d.match(/\/Kids\s*\[([^\]]*)\]/); for (const r of (k?.[1] || "").matchAll(/(\d+)\s+\d+\s+R/g)) await recorrer(r[1]); } else if (/\/Type\s*\/Page\b/.test(d)) paginas.push(n); };
+  const raiz = Object.keys({...objs, ...crudo}).find(n => /\/Type\s*\/Pages\b/.test((crudo[n]?.d) ?? s.slice(objs[n], objs[n] + 400)) && !/\/Parent/.test((crudo[n]?.d) ?? s.slice(objs[n], s.indexOf("endobj", objs[n]))));
+  if (raiz) await recorrer(raiz);
+  const out = [];
+  for (const pn of paginas) {
+    const d = (await leer(pn)).d; let res = await val(d, "Resources");
+    if (!res) { let par = d.match(/\/Parent\s+(\d+)/)?.[1]; while (par && !res) { const pd = (await leer(par)).d; res = await val(pd, "Resources"); par = pd.match(/\/Parent\s+(\d+)/)?.[1]; } }
+    const F = await fuentes(res);
+    const cont = d.match(/\/Contents\s*(\[[^\]]*\]|\d+\s+\d+\s+R)/)?.[1] || "", partes = [];
+    for (const r of cont.matchAll(/(\d+)\s+\d+\s+R/g)) { const o = await leer(r[1]); if (o.data) partes.push(L1(o.data)); else if (/^\s*\[/.test(o.d)) for (const r2 of o.d.matchAll(/(\d+)\s+\d+\s+R/g)) { const o2 = await leer(r2[1]); if (o2.data) partes.push(L1(o2.data)); } }
+    out.push(pacPdfTexto(partes.join("\n"), F));
+  }
+  if (!out.join("").trim()) { /* Último recurso: todos los flujos de texto sin fuentes */
+    for (const n of Object.keys(objs)) { const o = await leer(n); if (o.data) { const c = L1(o.data); if (/\bBT\b/.test(c)) out.push(pacPdfTexto(c, {})); } }
   }
   return out.join("\n");
 }
-function pacPdfTexto(c){
-  let txt = "", y = null;
-  const tok = /\((?:\\.|[^\\)])*\)|<[0-9A-Fa-f\s]*>|\[|\]|-?\d*\.?\d+|\/\S+|[A-Za-z'"*]+/g; let t, pila = [];
-  const lit = s => s.slice(1, -1).replace(/\\([nrtbf()\\]|[0-7]{1,3})/g, (_, x) => /^[0-7]/.test(x) ? String.fromCharCode(parseInt(x, 8)) : ({n:"\n", r:"", t:" ", b:"", f:""}[x] ?? x));
-  const hex = s => { const h = s.slice(1, -1).replace(/\s/g, ""); let r = ""; for (let i = 0; i < h.length; i += 2) r += String.fromCharCode(parseInt(h.substr(i, 2), 16)); return r; };
-  const str = x => x[0] === "(" ? lit(x) : hex(x);
+function pacPdfTexto(c, F){
+  const mul = (a, b) => [a[0]*b[0]+a[1]*b[2], a[0]*b[1]+a[1]*b[3], a[2]*b[0]+a[3]*b[2], a[2]*b[1]+a[3]*b[3], a[4]*b[0]+a[5]*b[2]+b[4], a[4]*b[1]+a[5]*b[3]+b[5]];
+  let ctm = [1,0,0,1,0,0], pilaG = [], tm = [1,0,0,1,0,0], tlm = [1,0,0,1,0,0], TL = 0, fz = 10, font = null;
+  const trozos = [];
+  const tok = /\((?:\\[\s\S]|[^\\)])*\)|<<|>>|<[0-9A-Fa-f\s]*>|\[|\]|-?\d*\.?\d+|\/[^\s/<>\[\]()]+|[A-Za-z'"*]+[01*]?/g; let t, pila = [];
+  const lit = s => { s = s.slice(1, -1); const b = []; for (let i = 0; i < s.length; i++) { const ch = s[i]; if (ch !== "\\") { b.push(ch.charCodeAt(0)); continue; } const n = s[++i]; if (/[0-7]/.test(n)) { let o = n; while (o.length < 3 && /[0-7]/.test(s[i + 1])) o += s[++i]; b.push(parseInt(o, 8) & 255); } else if (n === "\n" || n === "\r") { if (n === "\r" && s[i + 1] === "\n") i++; } else b.push(({n:10, r:13, t:9, b:8, f:12}[n]) ?? n.charCodeAt(0)); } return b; };
+  const hex = s => { const h = s.slice(1, -1).replace(/\s/g, ""); const b = []; for (let i = 0; i < h.length; i += 2) b.push(parseInt((h.substr(i, 2) + "0").slice(0, 2), 16)); return b; };
+  let tc = 0, tw = 0, th = 1;
+  /* Devuelve el texto y lo que avanza (en unidades de texto) */
+  const dec = x => { const b = x[0] === "(" ? lit(x) : hex(x), f = F[font] || {bytes: 1}; let r = "", w = 0;
+    for (let i = 0; i + f.bytes <= b.length; i += f.bytes) { let c = 0; for (let k = 0; k < f.bytes; k++) c = c * 256 + b[i + k];
+      const ch = f.map ? (f.map[c] ?? "") : f.bytes === 2 ? "" : String.fromCharCode(c); r += ch;
+      w += ((f.W?.[c] ?? f.dw ?? 500) / 1000 * fz + tc + (ch === " " && f.bytes === 1 ? tw : 0)) * th; }
+    return [r, w]; };
+  const avanza = w => { tm = mul([1,0,0,1,w,0], tm); };
+  const pon = (txt, w) => { const m = mul(tm, ctm), esc_ = Math.hypot(m[0], m[1]) || 1; if (txt) trozos.push({x: m[4], y: m[5], xe: m[4] + w * esc_ * Math.sign(m[0] || 1), em: fz * esc_, s: txt}); avanza(w); };
+  const nl = () => { tlm = mul([1,0,0,1,0,-TL], tlm); tm = tlm.slice(); };
   while ((t = tok.exec(c))) {
-    const v = t[0];
-    if (v === "Tj" || v === "'" || v === '"') { const x = pila.reverse().find(p => /^[(<]/.test(p)); if (v !== "Tj") txt += "\n"; if (x) txt += str(x) + " "; pila = []; }
-    else if (v === "TJ") { let a = ""; for (const p of pila) if (/^[(<]/.test(p)) a += str(p); else if (!isNaN(p) && Number(p) < -180) a += " "; txt += a + " "; pila = []; }
-    else if (v === "Td" || v === "TD") { const ty = Number(pila[pila.length - 1]); if (ty) txt += "\n"; pila = []; }
-    else if (v === "Tm") { const ny = Number(pila[pila.length - 1]); if (y != null && Math.abs(ny - y) > 1) txt += "\n"; y = ny; pila = []; }
-    else if (v === "T*" || v === "ET") { txt += "\n"; pila = []; }
-    else if (/^[A-Za-z]/.test(v) && !["Tf","Tc","Tw","Tz","TL","Ts","Tr","BT"].includes(v)) pila = [];
-    else pila.push(v);
+    const v = t[0], num = i => Number(pila[pila.length - i]);
+    switch (v) {
+      case "q": pilaG.push(ctm.slice()); pila = []; break;
+      case "Q": ctm = pilaG.pop() || [1,0,0,1,0,0]; pila = []; break;
+      case "cm": ctm = mul(pila.slice(-6).map(Number), ctm); pila = []; break;
+      case "BT": tm = [1,0,0,1,0,0]; tlm = tm.slice(); pila = []; break;
+      case "Tf": font = String(pila[pila.length - 2] || "").slice(1); fz = num(1); pila = []; break;
+      case "TL": TL = num(1); pila = []; break;
+      case "Td": tlm = mul([1,0,0,1,num(2),num(1)], tlm); tm = tlm.slice(); pila = []; break;
+      case "TD": TL = -num(1); tlm = mul([1,0,0,1,num(2),num(1)], tlm); tm = tlm.slice(); pila = []; break;
+      case "Tm": tlm = pila.slice(-6).map(Number); tm = tlm.slice(); pila = []; break;
+      case "T*": nl(); pila = []; break;
+      case "Tc": tc = num(1); pila = []; break;
+      case "Tw": tw = num(1); pila = []; break;
+      case "Tz": th = num(1) / 100; pila = []; break;
+      case "Tj": { const x = [...pila].reverse().find(p => /^[(<]/.test(p)); if (x) pon(...dec(x)); pila = []; break; }
+      case "'": case '"': { nl(); const x = [...pila].reverse().find(p => /^[(<]/.test(p)); if (x) pon(...dec(x)); pila = []; break; }
+      case "TJ": { const ini = pila.lastIndexOf("["); let a = "", w = 0, x0 = null;
+        for (const p of pila.slice(ini + 1)) { if (/^[(<]/.test(p)) { const [t2, w2] = dec(p); a += t2; w += w2; } else if (!isNaN(p)) { const d = -Number(p) / 1000 * fz * th; if (d > fz * 0.25) a += " "; w += d; } }
+        pon(a, w); pila = []; break; }
+      default: if (/^[A-Za-z]/.test(v) && v !== "R") pila = []; else pila.push(v);
+    }
   }
-  return txt;
+  /* Agrupa por renglones (misma altura) y ordena de izquierda a derecha */
+  const filas = [];
+  for (const k of trozos.sort((a, b) => b.y - a.y || a.x - b.x)) { const f = filas.find(f => Math.abs(f.y - k.y) < 2.5); if (f) f.t.push(k); else filas.push({y: k.y, t: [k]}); }
+  /* Une los trozos: sin espacio si van pegados (letras separadas por el ajuste entre caracteres) */
+  return filas.sort((a, b) => b.y - a.y).map(f => f.t.sort((a, b) => a.x - b.x).reduce((acc, k, i, arr) => { if (!i) return k.s; const pr = arr[i - 1]; return acc + (k.x - pr.xe > k.em * 0.2 ? " " : "") + k.s; }, "").replace(/\s+/g, " ").trim()).join("\n");
 }
 
 /* ---- Coordenadas: UTM (ETRS89) y Web Mercator a grados ---- */
@@ -2409,16 +2500,36 @@ function pacProps(lista){
 }
 /* Texto libre (pegado o sacado del PDF): busca líneas con prov, mun, agr, zona, pol, par y recinto */
 function pacLineas(txt){
-  const rs = [], re = /(?:^|[^\d,.])(\d{1,2})[\s:\-/]+(\d{1,3})[\s:\-/]+(\d{1,3})[\s:\-/]+(\d{1,3})[\s:\-/]+(\d{1,4})[\s:\-/]+(\d{1,5})[\s:\-/]+(\d{1,5})(?![\d]|[.,]\d)/;
-  for (const l of txt.split(/\r?\n/)) {
-    const m = l.match(re); if (!m) continue;
-    const [prov, mun, ag, zona, pol, par, rec] = m.slice(1).map(Number); if (prov < 1 || prov > 52 || !mun) continue;
-    const resto = l.slice(m.index + m[0].length);
+  const rs = [];
+  /* Busca tramos de 7 o más números enteros seguidos (prov, mun, agr, zona, pol, par, rec). Si delante hay
+     un número de orden o de línea, elige la ventana más verosímil: agregado y zona suelen ser 0. */
+  const ventana = l => {
+    const toks = [...l.matchAll(/\d+(?:[.,]\d+)?/g)].map(x => ({v: x[0], i: x.index, f: x.index + x[0].length})), mejor = [];
+    for (let a = 0; a < toks.length; a++) {
+      let b = a; while (b < toks.length && /^\d+$/.test(toks[b].v) && (b === a || /^[\s:\-/]+$/.test(l.slice(toks[b - 1].f, toks[b].i)))) b++;
+      if (b - a >= 7) for (let k = a; k + 7 <= b; k++) {
+        const n = toks.slice(k, k + 7).map(x => Number(x.v)); if (n[0] < 1 || n[0] > 52 || !n[1] || n[1] > 999 || n[4] < 1 || n[5] < 1) continue;
+        const pts = (n[2] === 0) * 4 + (n[3] === 0) * 4 + (n[2] < 100) * 2 + (n[3] < 100) * 2 + (k + 7 === b) * 1 + ([2, 13, 16, 19, 45].includes(n[0])) * 1;
+        mejor.push({pts, n, fin: toks[k + 6].f});
+      }
+      if (b > a) a = b - 1;
+    }
+    return mejor.sort((x, y) => y.pts - x.pts)[0];
+  };
+  /* Renglones sueltos solo con texto en mayúsculas: suelen ser un nombre de cultivo partido en dos líneas */
+  const ls = txt.split(/\r?\n/).map(l => l.trim()), ws = ls.map(ventana), suelto = i => i >= 0 && i < ls.length && !ws[i] && /^[A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ .,\-/]{2,40}$/.test(ls[i]);
+  for (let i = 0; i < ls.length; i++) {
+    const l = ls[i], w = ws[i]; if (!w) continue;
+    const [prov, mun, ag, zona, pol, par, rec] = w.n;
+    const resto = l.slice(w.fin);
     const uso = (resto.match(/\b([A-Z]{2})\b/g) || []).find(c => SIG_USOS[c] || pacUsoOpc(c)) || "";
     const dec = (resto.match(/\d+[.,]\d+/g) || []).map(pacNum).filter(x => x > 0 && x < 5000);
-    const palabras = resto.replace(/\b[A-Z]{2}\b/, " ").match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ][A-Za-zÁÉÍÓÚÜÑáéíóúüñ.()\-/ ]{2,}/g) || [];
-    const prod = palabras.map(s => s.trim()).filter(s => s.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "").length >= 3 && !/^(si|no|secano|regadio|regadío|ha|has)$/i.test(s)).sort((a, b) => b.length - a.length)[0] || "";
-    const riego = /regad[ií]o|\bR\b/.test(resto) ? "Regadío" : /secano/i.test(resto) ? "Secano" : "";
+    const palabras = resto.replace(/\b[A-Z]{2}\b/, " ").replace(/(^|\s)[SR](?=\s|$)/g, " ").match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ][A-Za-zÁÉÍÓÚÜÑáéíóúüñ.()\-/ ]{2,}/g) || [];
+    let prod = palabras.map(s => s.trim()).filter(s => s.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "").length >= 3 && !/^(si|no|secano|regadio|regadío|ha|has)$/i.test(s)).sort((a, b) => b.length - a.length)[0] || "";
+    const centrado = j => ws[j] && suelto(j - 1) && suelto(j + 1);
+    if (centrado(i)) prod = [ls[i - 1], ls[i + 1], prod].filter(Boolean).join(" ");
+    else if (suelto(i + 1) && !centrado(i + 2)) prod = [prod, ls[i + 1]].filter(Boolean).join(" ");
+    const riego = /regad[ií]o|(^|\s)R(\s|$)/i.test(resto) ? "Regadío" : /secano|(^|\s)S(\s|$)/.test(resto) ? "Secano" : "";
     rs.push({prov, mun, ag, zona, pol, par, rec, supd: dec.length ? dec[dec.length - 1] : null, sups: dec.length > 1 ? dec[0] : null, uso, prod, prodc: "", var: "", riego, nombre: "", geo: null});
   }
   return rs;
