@@ -50,6 +50,7 @@ async function montarTiempoHoy(){
     <dt>Viento máx.</dt><dd>${fnum(D.wind_speed_10m_max[i])} km/h</dd>
     <dt>Para tratar</dt><dd>${hoyW.length ? hoyW.map(w=>`<span class="pill ok">${w.desde.slice(11,13)}–${Number(w.hasta.slice(11,13))+1} h</span>`).join(" ") : W[0] ? `Hoy no. Próxima: ${fh(W[0].desde)}` : "Sin ventanas en 7 días"}</dd></dl></div>
     ${d._old?`<p class="muted" style="font-size:.8rem;margin:0">Datos guardados del ${new Date(d._old).toLocaleString("es-ES")}</p>`:""}
+    ${wxAlertas.length?`<ul class="alerts">${wxAlertas.slice(0,3).map(a=>`<li class="${a.lv}"><div><strong>${esc(a.t)}</strong></div></li>`).join("")}</ul>`:""}
     <button class="btn" data-go="agri" data-tab="tiempo">Ver previsión completa</button>`;
 }
 { const _vi = viewInicio; viewInicio = () => { const h = _vi(); const i = h.indexOf('<div class="grid2">'); return i < 0 ? h + panelHoy() : h.slice(0, i) + panelHoy() + h.slice(i); }; }

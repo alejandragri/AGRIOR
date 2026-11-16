@@ -11,7 +11,7 @@ S.recordatorios = {title: "Recordatorios", one: "recordatorio", label: r => r.ti
   {k:"notas", l:"Notas", t:"area"}],
   cols: [{l:"Próxima fecha", f:r=>fdate(proxima(r)), pill:r=>{const p=proxima(r); if(!p) return "ok"; return p<today()?"crit":daysBetween(today(),p)<=Number(r.antes||0)?"warn":"";}}, "hora", "titulo", "tipo", "modulo", "repetir",
     {l:"Estado", f:r=>!proxima(r)?"Hecho":proxima(r)<today()?"Atrasado":"Pendiente", pill:r=>!proxima(r)?"ok":proxima(r)<today()?"crit":""}]};
-MODS.agenda.tables = ["calendario","recordatorios"];
+MODS.agenda.tables = ["calendario","plazos","recordatorios"];
 
 function sumPeriod(d, p, k=1){ const x = new Date(d+"T12:00:00"); if (p.endsWith("d")) x.setDate(x.getDate()+parseInt(p)*k); else x.setMonth(x.getMonth()+parseInt(p)*k); return x.toISOString().slice(0,10); }
 /* Próxima fecha pendiente: para los que se repiten, "hecho" avanza la fecha al guardar */
@@ -126,4 +126,63 @@ SEEDS.push((d, add, D) => {
   add("recordatorios", {titulo:"Saneamiento ganadero con la ADS", fecha:D(24), hora:"10:00", tipo:"Saneamiento", modulo:"Ganadero", repetir:"Cada año", antes:7});
   add("recordatorios", {titulo:"Control de caída de varroa", fecha:D(1), hora:"11:00", tipo:"Tratamiento varroa", modulo:"Apícola", repetir:"Cada mes", antes:1});
   add("recordatorios", {titulo:"Abonado de cobertera en La Hoya", fecha:D(60), hora:"08:00", tipo:"Labor", modulo:"Agrícola", repetir:"No se repite", antes:3});
+});
+
+/* ============ Plazos: todo lo que vence en un sitio, con los plazos oficiales de cada año ============ */
+/* Fechas comprobadas en la normativa. La PAC cambia cada campaña: se guardan como recordatorios anuales que puedes corregir. */
+const PLAZOS_OFICIALES = [
+  {id:"pac-ini", titulo:"Se abre la solicitud única de la PAC", mes:"02-01", antes:7, notas:"Castilla-La Mancha. En 2025 fue del 1 de febrero al 30 de abril (Orden 7/2025, DOCM de 31/01/2025). Comprueba cada año la orden de la campaña en el DOCM."},
+  {id:"pac-fin", titulo:"Último día de la solicitud única de la PAC", mes:"04-30", antes:15, notas:"Castilla-La Mancha. Fuera de plazo se descuenta un 1 % por cada día hábil de retraso. A veces se amplía: compruébalo en el DOCM."},
+  {id:"pac-mod", titulo:"Último día para modificar la solicitud de la PAC", mes:"05-15", antes:7, notas:"Castilla-La Mancha (15 de mayo en 2025): añadir parcelas o ayudas. Las parcelas en monitorización se pueden ajustar hasta el 31 de agosto."},
+  {id:"pac-mon", titulo:"Último día para ajustar parcelas en monitorización (PAC)", mes:"08-31", antes:10, notas:"Castilla-La Mancha (Orden 7/2025, art. 6.3)."},
+  {id:"fito-2027", titulo:"El registro de tratamientos fitosanitarios pasa a ser electrónico", fecha:"2027-01-01", antes:30, notas:"Real Decreto 1039/2025: el papel vale hasta el 31/12/2026. Desde el 1/1/2027 los tratamientos se anotan en formato electrónico. La app ya lo lleva: revisa en Informes › Cuaderno digital que no falte ningún dato."},
+];
+function siguienteFechaAnual(mmdd){ const y = Number(today().slice(0,4)); const d = `${y}-${mmdd}`; return d >= today() ? d : `${y+1}-${mmdd}`; }
+function anadirPlazosOficiales(){
+  let n = 0;
+  for (const p of PLAZOS_OFICIALES) {
+    if (DB.recordatorios.some(r=>r.oficial===p.id)) continue;
+    const fecha = p.fecha || siguienteFechaAnual(p.mes);
+    if (p.fecha && p.fecha < today()) continue;
+    DB.recordatorios.push({id:uid(), _u:now(), oficial:p.id, titulo:p.titulo, fecha, hora:"09:00", tipo:"Papeleo (PAC, REGA...)", modulo:"Agrícola", repetir:p.mes?"Cada año":"No se repite", antes:p.antes, hecho:false, notas:p.notas});
+    n++;
+  }
+  save(); render(); toast(n ? `${n} plazos añadidos a tus recordatorios` : "Ya tenías todos los plazos oficiales");
+}
+/* El carné de aplicador también entra en el calendario y en la lista de plazos */
+{ const _ev = eventosAuto; eventosAuto = (desde, hasta) => { const E = _ev(desde, hasta);
+  for (const w of DB.trabajadores||[]) if (w.activo && w.carne_cad && w.carne_cad >= desde && w.carne_cad <= hasta) E.push({d:w.carne_cad, c:"var(--partes)", t:`Caduca el carné de aplicador de ${w.nombre}`, go:["partes","trabajadores"]});
+  return E; }; }
+function listaPlazos(dias){
+  const h = today(), fin = addDays(h, dias), L = [];
+  for (const r of DB.recordatorios) { const p = proxima(r); if (!p || p > fin) continue; L.push({d:p, t:r.titulo, s:[r.tipo, r.repetir!=="No se repite"?r.repetir.toLowerCase():""].filter(Boolean).join(" · "), c:"var(--agenda)", edit:["recordatorios", r.id], antes:Number(r.antes||0), oficial:!!r.oficial}); }
+  for (const e of eventosAuto(h, fin)) if (!e.done) L.push({...e, s:"Aviso automático", antes:7});
+  // Lo que ya ha vencido y sigue pendiente
+  for (const m of DB.maquinaria||[]) if (m.itv && m.itv < h) L.push({d:m.itv, t:`ITV o inspección caducada: ${m.nombre}`, s:"Pide cita cuanto antes", c:"var(--partes)", go:["partes","maquinaria"]});
+  for (const w of DB.trabajadores||[]) if (w.activo && w.carne_cad && w.carne_cad < h) L.push({d:w.carne_cad, t:`Carné de aplicador caducado: ${w.nombre}`, s:"No puede aplicar fitosanitarios hasta renovarlo", c:"var(--partes)", go:["partes","trabajadores"]});
+  return L.sort((a,b)=>a.d.localeCompare(b.d));
+}
+UI.plazosD = UI.plazosD || 180;
+TABS.plazos = {title: "Plazos", render(){
+  const L = listaPlazos(UI.plazosD), h = today(), tiene = PLAZOS_OFICIALES.filter(p=>!p.fecha||p.fecha>=h).every(p=>DB.recordatorios.some(r=>r.oficial===p.id));
+  const grupos = {}; for (const e of L) { const k = e.d < h ? "Vencido" : e.d.slice(0,7); (grupos[k] = grupos[k]||[]).push(e); }
+  const nomMes = k => k === "Vencido" ? "Vencido" : new Date(k+"-15T12:00").toLocaleDateString("es-ES",{month:"long", year:"numeric"}).replace(/^./, c=>c.toUpperCase());
+  const falta = e => { const n = daysBetween(h, e.d); return n < 0 ? `<span class="pill crit">hace ${-n} d</span>` : n === 0 ? `<span class="pill crit">hoy</span>` : `<span class="pill ${n <= Math.max(e.antes||0, 7) ? "warn" : ""}">${n === 1 ? "mañana" : `en ${n} días`}</span>`; };
+  return `<div class="toolbar"><select id="plazosD" aria-label="Periodo" style="width:auto">${[[30,"Próximo mes"],[90,"Próximos 3 meses"],[180,"Próximos 6 meses"],[365,"Próximo año"]].map(([v,l])=>`<option value="${v}" ${Number(UI.plazosD)===v?"selected":""}>${l}</option>`).join("")}</select>
+    <span class="grow"></span><button class="btn" data-act="notif">${notifState()}</button><button class="btn" data-act="ics">Añadir al calendario del móvil</button>${tiene?"":`<button class="btn primary" data-act="plazos-of">+ Plazos de la PAC y fitosanitarios</button>`}</div>
+  ${tiene?"":`<p class="banner"><span>Añade los plazos de la solicitud única de la PAC en Castilla-La Mancha y el paso al registro electrónico de fitosanitarios. Se guardan como recordatorios que se repiten cada año y puedes corregir si cambian las fechas.</span></p>`}
+  ${L.length ? Object.entries(grupos).map(([k, es]) => `<section class="panel"><h3>${nomMes(k)}</h3><ul class="alerts">${es.map(e=>`<li ${e.edit?`data-edit="${e.edit[0]}" data-id="${e.edit[1]}"`:`data-go="${e.go[0]}" data-tab="${e.go[1]}"`} class="${e.d<h?"crit":""}" style="cursor:pointer;border-left-color:${e.c}"><div><strong>${esc(e.t)}</strong><small>${fdate(e.d)} · ${esc(e.s||"")}${e.oficial?" · plazo oficial":""}</small></div><span class="when">${falta(e)}</span></li>`).join("")}</ul></section>`).join("")
+    : `<div class="empty">Nada vence en este periodo.</div>`}
+  <p class="muted" style="font-size:.82rem">Reúne tus recordatorios, la ITV o inspección de la maquinaria, el carné de aplicador, los fines de plazo de seguridad, las retiradas de tratamientos y las caducidades del almacén. Para la ITV y el carné, apunta la fecha en Partes › Maquinaria y Partes › Trabajadores.</p>`;
+}};
+document.addEventListener("change", e => { if (e.target.id === "plazosD") { UI.plazosD = Number(e.target.value); render(); } });
+document.addEventListener("click", e => { const el = e.target.closest('[data-act="plazos-of"]'); if (el) anadirPlazosOficiales(); });
+
+/* Aviso al apuntar una cosecha dentro del plazo de seguridad de un tratamiento */
+function plazoSeguridadEn(parcela, fecha){ return DB.fitosanitarios.filter(r=>r.parcela===parcela && r.plazo && r.fecha && r.fecha <= fecha && addDays(r.fecha, r.plazo) > fecha); }
+FORM_EXTRA.push({
+  html:t => t === "cosechas" ? `<p id="plazoAv" class="pill crit" style="white-space:normal" hidden></p>` : "",
+  mount(t){ if (t !== "cosechas") return; const chk = () => { const el = $("#plazoAv"), pa = $("#f_parcela")?.value, f = $("#f_fecha")?.value; if (!el) return; const T = pa && f ? plazoSeguridadEn(pa, f) : [];
+      el.hidden = !T.length; el.textContent = T.length ? `Ojo: ${T.map(r=>`${r.producto} (tratado el ${fdate(r.fecha)}, plazo hasta el ${fdate(addDays(r.fecha, r.plazo))})`).join("; ")}. No se debe cosechar antes de que termine el plazo de seguridad.` : ""; };
+    $("#f_parcela")?.addEventListener("change", chk); $("#f_fecha")?.addEventListener("change", chk); chk(); }
 });

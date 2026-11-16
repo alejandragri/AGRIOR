@@ -257,6 +257,8 @@ ol.traz-line li span{display:block;color:var(--muted, inherit)}
 .leaflet-popup-content .btn:not(.primary){color:var(--fg)}
 .leaflet-popup-content .btn.primary{color:var(--accent-fg, #fff)}
 [hidden]{display:none !important}
+/* Aviso de sin cobertura */
+.netbar{position:fixed;left:0;right:0;top:0;z-index:60;padding:8px 14px;background:var(--warn-bg);color:var(--fg);border-bottom:1px solid var(--line);font-size:.9rem;text-align:center}
 
 /* required styles */
 
@@ -1274,7 +1276,7 @@ function viewInicio(){
   </div>
   <div class="grid2">
     <section class="panel"><h2>Avisos</h2>
-      ${A.length ? `<ul class="alerts">${A.map(a=>`<li class="${a.lv}" data-go="${a.mod}" data-tab="${a.tab}" style="cursor:pointer"><div><strong>${esc(a.t)}</strong><small>${esc(a.s)}</small></div>${a.d?`<span class="when">hasta ${fdate(a.d)}</span>`:""}</li>`).join("")}</ul>` : `<p class="muted">No hay avisos pendientes.</p>`}
+      ${A.length ? `<ul class="alerts">${A.map(a=>`<li class="${a.lv}" data-go="${a.mod}" data-tab="${a.tab}" style="cursor:pointer"><div><strong>${esc(a.t)}</strong><small>${esc(a.s)}</small></div>${a.d?`<span class="when">${a.wx?"":"hasta "}${fdate(a.d)}</span>`:""}</li>`).join("")}</ul>` : `<p class="muted">No hay avisos pendientes.</p>`}
     </section>
     <section class="panel"><h2>Registrar rápido</h2>
       <div class="toolbar">
@@ -1621,7 +1623,35 @@ SEEDS.push((d, add, D) => {
 
 /* ============ Rentabilidad por parcela, lote y apiario ============ */
 const enAno = r => UI.year === "todos" || (r.fecha||"").startsWith(UI.year);
+/* Coste real de las máquinas en cada parte: gasoil (horas × l/h × €/L) y taller (coste del año repartido por horas) */
+function precioLitroMaq(mid, y){
+  const R = DB.repostajes.filter(r=>r.maquina===mid && !/AdBlue/.test(r.combustible||""));
+  const Ry = y === "todos" ? R : R.filter(r=>(r.fecha||"").startsWith(y)), X = Ry.length ? Ry : R;
+  const L = X.reduce((s,r)=>s+Number(r.litros||0),0), E = X.reduce((s,r)=>s+importeRep(r),0);
+  return L ? E / L : 0;
+}
+function tallerHoraMaq(mid, y){
+  const en = r => y === "todos" || (r.fecha||"").startsWith(y);
+  const c = DB.intervenciones.filter(i=>i.maquina===mid && en(i)).reduce((s,i)=>s+costeInterv(i),0);
+  const h = DB.partes.filter(p=>p.maquina===mid && en(p)).reduce((s,p)=>s+horasMaq(p),0);
+  return h ? c / h : 0;
+}
+/* Desglose de un parte: si la máquina tiene «coste por hora» se usa ese; si no, el gasoil y el taller reales */
+function costesParte(p, y){
+  const w = DB.trabajadores.find(x=>x.id===p.trabajador), m = DB.maquinaria.find(x=>x.id===p.maquina), hm = horasMaq(p);
+  const o = {mo: horasParte(p)*Number(w?.coste_hora||0), gasoil:0, taller:0, maq:0, prod: costeConsumo(p)};
+  if (m && Number(m.coste_hora)) o.maq = hm * Number(m.coste_hora);
+  else if (m) { o.gasoil = litrosParte(p) * precioLitroMaq(m.id, y); o.taller = hm * tallerHoraMaq(m.id, y); }
+  return o;
+}
+/* Gastos de Economía sin parcela, lote ni apiario: los de gasoil y taller ya se reparten por los partes */
+function gastosGenerales(){
+  return DB.economia.filter(r=>r.tipo==="Gasto" && enAno(r) && !r.compra && !r.parcela && !r.lote && !r.apiario && !r.repostaje && !r.interv && !/^(Combustible|Maquinaria)$/.test(r.categoria||"")).reduce((s,r)=>s+Number(r.importe||0),0);
+}
+const cultivoAno = (pid, y) => { const C = DB.cultivos.filter(c=>c.parcela===pid && (y==="todos" || String(c.campana)===y)).sort((a,b)=>Number(b.campana||0)-Number(a.campana||0)); return C[0]?.cultivo || ""; };
+UI.repGen = UI.repGen ?? false;
 function rentParcelas(){
+  const y = UI.year, haT = DB.parcelas.reduce((s,p)=>s+Number(p.superficie||0),0), gen = UI.repGen ? gastosGenerales() : 0;
   return DB.parcelas.map(p => {
     const ha = Number(p.superficie||0);
     const venta = DB.cosechas.filter(r=>r.parcela===p.id&&enAno(r)).reduce((s,r)=>s+Number(r.cantidad||0)*Number(r.precio||0),0);
@@ -1630,8 +1660,10 @@ function rentParcelas(){
     const labores = DB.labores.filter(r=>r.parcela===p.id&&enAno(r)).reduce((s,r)=>s+Number(r.coste||0)+costeConsumo(r),0);
     const insumos = [...DB.fitosanitarios, ...DB.abonados].filter(r=>r.parcela===p.id&&enAno(r)).reduce((s,r)=>s+costeConsumo(r),0);
     const gasE = DB.economia.filter(r=>r.parcela===p.id&&r.tipo==="Gasto"&&enAno(r)&&!r.compra).reduce((s,r)=>s+Number(r.importe||0),0);
-    const ing = venta + ingE, gas = labores + insumos + gasE;
-    return {n:p.nombre, sub:`${fnum(ha)} ha`, ha, kg, ing, gas, det:{"Cosechas":venta, "Otros ingresos":ingE, "Labores":labores, "Productos":insumos, "Otros gastos":gasE}};
+    const repartido = haT ? gen * ha / haT : 0;
+    const ing = venta + ingE, gas = labores + insumos + gasE + repartido;
+    return {id:p.id, n:p.nombre, cultivo:cultivoAno(p.id, y), sub:`${fnum(ha)} ha${cultivoAno(p.id, y)?" · "+cultivoAno(p.id, y):""}`, ha, kg, ing, gas,
+      det:{"Cosechas":venta, "Otros ingresos":ingE, "Labores":labores, "Productos":insumos, "Otros gastos":gasE, "Gastos generales":repartido}};
   });
 }
 function rentLotes(){
@@ -1658,19 +1690,29 @@ function rentApiarios(){
     return {n:a.nombre, sub:`${nc} colmenas · ${fnum(prod.reduce((s,r)=>s+Number(r.kg||0),0))} kg`, cab:nc, ing, gas:trat+alim+gasE, det:{"Producción valorada":venta, "Ingresos apuntados":ingE, "Tratamientos":trat, "Alimentación":alim, "Otros gastos":gasE}};
   });
 }
-function tablaRent(title, rows, unit, unitKey){
+function tablaRent(title, rows, unit, unitKey, kgCol){
   if (!rows.length) return `<section class="panel"><h3>${title}</h3><p class="muted">Sin datos todavía.</p></section>`;
-  return `<section class="panel"><h3>${title}</h3><div class="table-wrap"><table><thead><tr><th></th><th>Ingresos</th><th>Costes</th><th>Margen</th>${unit?`<th>Margen ${unit}</th>`:""}<th>Desglose</th></tr></thead><tbody>
-  ${rows.map(r=>{const m=r.ing-r.gas, u=r[unitKey];return `<tr style="cursor:default"><td><strong>${esc(r.n)}</strong><br><span class="muted" style="font-size:.85rem">${esc(r.sub)}</span></td><td class="num">${eur.format(r.ing)}</td><td class="num">${eur.format(r.gas)}</td><td class="num"><span class="pill ${m>=0?"ok":"crit"}">${eur.format(m)}</span></td>${unit?`<td class="num">${u?eur.format(m/u):"—"}</td>`:""}<td class="wrap-cell muted" style="font-size:.82rem">${Object.entries(r.det).filter(([,v])=>v).map(([k,v])=>`${k}: ${eur.format(v)}`).join(" · ")||"—"}</td></tr>`;}).join("")}
+  return `<section class="panel"><h3>${title}</h3><div class="table-wrap"><table><thead><tr><th></th><th>Ingresos</th><th>Costes</th><th>Margen</th>${unit?`<th>Margen ${unit}</th>`:""}${kgCol?`<th>Coste por kg</th>`:""}<th>Desglose</th></tr></thead><tbody>
+  ${rows.map(r=>{const m=r.ing-r.gas, u=r[unitKey];return `<tr style="cursor:default"><td><strong>${esc(r.n)}</strong><br><span class="muted" style="font-size:.85rem">${esc(r.sub)}</span></td><td class="num">${eur.format(r.ing)}</td><td class="num">${eur.format(r.gas)}</td><td class="num"><span class="pill ${m>=0?"ok":"crit"}">${eur.format(m)}</span></td>${unit?`<td class="num">${u?eur.format(m/u):"—"}</td>`:""}${kgCol?`<td class="num">${r.kg?eur.format(r.gas/r.kg):"—"}</td>`:""}<td class="wrap-cell muted" style="font-size:.82rem">${Object.entries(r.det).filter(([,v])=>v).map(([k,v])=>`${k}: ${eur.format(v)}`).join(" · ")||"—"}</td></tr>`;}).join("")}
   </tbody></table></div></section>`;
 }
+function porCultivo(R){
+  const G = {};
+  for (const r of R) { const k = r.cultivo || "Sin cultivo apuntado"; const g = G[k] = G[k] || {n:k, sub:"", ha:0, kg:0, ing:0, gas:0, det:{}, np:0};
+    g.ha += r.ha; g.kg += r.kg; g.ing += r.ing; g.gas += r.gas; g.np++; for (const [a,v] of Object.entries(r.det)) g.det[a] = (g.det[a]||0) + v; }
+  return Object.values(G).map(g => ({...g, sub:`${g.np} parcela${g.np>1?"s":""} · ${fnum(g.ha)} ha${g.kg?` · ${fnum(g.kg)} kg`:""}`})).sort((a,b)=>(b.ing-b.gas)-(a.ing-a.gas));
+}
 TABS.rentabilidad = {title: "Rentabilidad", render(){
+  const RP = rentParcelas();
   return `<div class="toolbar"><select id="year" aria-label="Año" style="width:auto">${["todos",...years()].map(y=>`<option value="${y}" ${UI.year===y?"selected":""}>${y==="todos"?"Todos los años":y}</option>`).join("")}</select>
-  <span class="muted" style="font-size:.88rem">Suma las cosechas valoradas, los costes de labores, el producto gastado del almacén a precio medio y los apuntes de Economía asignados a cada parcela, lote o apiario.</span></div>
-  ${tablaRent("Por parcela", rentParcelas(), "/ha", "ha")}
+  <span class="muted" style="font-size:.88rem">Suma las cosechas y facturas, las labores, los productos del almacén a precio medio, los partes de trabajo (mano de obra, gasoil según el consumo real de cada máquina y taller repartido por horas) y los apuntes de Economía de cada parcela, lote o apiario.</span></div>
+  <div class="fld chk"><input type="checkbox" id="repGen" ${UI.repGen?"checked":""}><label for="repGen">Repartir los gastos generales entre las parcelas según sus hectáreas (seguros, cuotas, gestoría…: ${eur.format(gastosGenerales())} este periodo)</label></div>
+  ${tablaRent("Por parcela", RP, "/ha", "ha", 1)}
+  ${tablaRent("Por cultivo", porCultivo(RP), "/ha", "ha", 1)}
   ${tablaRent("Por lote de ganado", rentLotes(), "/cabeza", "cab")}
   ${tablaRent("Por apiario", rentApiarios(), "/colmena", "cab")}`;
 }};
+document.addEventListener("change", e => { if (e.target.id === "repGen") { UI.repGen = e.target.checked; render(); } });
 
 /* ============ Agenda: recordatorios, calendario y notificaciones ============ */
 const REPET = {"No se repite":0, "Cada semana":"7d", "Cada mes":"1m", "Cada 3 meses":"3m", "Cada 6 meses":"6m", "Cada año":"12m"};
@@ -1685,7 +1727,7 @@ S.recordatorios = {title: "Recordatorios", one: "recordatorio", label: r => r.ti
   {k:"notas", l:"Notas", t:"area"}],
   cols: [{l:"Próxima fecha", f:r=>fdate(proxima(r)), pill:r=>{const p=proxima(r); if(!p) return "ok"; return p<today()?"crit":daysBetween(today(),p)<=Number(r.antes||0)?"warn":"";}}, "hora", "titulo", "tipo", "modulo", "repetir",
     {l:"Estado", f:r=>!proxima(r)?"Hecho":proxima(r)<today()?"Atrasado":"Pendiente", pill:r=>!proxima(r)?"ok":proxima(r)<today()?"crit":""}]};
-MODS.agenda.tables = ["calendario","recordatorios"];
+MODS.agenda.tables = ["calendario","plazos","recordatorios"];
 
 function sumPeriod(d, p, k=1){ const x = new Date(d+"T12:00:00"); if (p.endsWith("d")) x.setDate(x.getDate()+parseInt(p)*k); else x.setMonth(x.getMonth()+parseInt(p)*k); return x.toISOString().slice(0,10); }
 /* Próxima fecha pendiente: para los que se repiten, "hecho" avanza la fecha al guardar */
@@ -1800,6 +1842,65 @@ SEEDS.push((d, add, D) => {
   add("recordatorios", {titulo:"Saneamiento ganadero con la ADS", fecha:D(24), hora:"10:00", tipo:"Saneamiento", modulo:"Ganadero", repetir:"Cada año", antes:7});
   add("recordatorios", {titulo:"Control de caída de varroa", fecha:D(1), hora:"11:00", tipo:"Tratamiento varroa", modulo:"Apícola", repetir:"Cada mes", antes:1});
   add("recordatorios", {titulo:"Abonado de cobertera en La Hoya", fecha:D(60), hora:"08:00", tipo:"Labor", modulo:"Agrícola", repetir:"No se repite", antes:3});
+});
+
+/* ============ Plazos: todo lo que vence en un sitio, con los plazos oficiales de cada año ============ */
+/* Fechas comprobadas en la normativa. La PAC cambia cada campaña: se guardan como recordatorios anuales que puedes corregir. */
+const PLAZOS_OFICIALES = [
+  {id:"pac-ini", titulo:"Se abre la solicitud única de la PAC", mes:"02-01", antes:7, notas:"Castilla-La Mancha. En 2025 fue del 1 de febrero al 30 de abril (Orden 7/2025, DOCM de 31/01/2025). Comprueba cada año la orden de la campaña en el DOCM."},
+  {id:"pac-fin", titulo:"Último día de la solicitud única de la PAC", mes:"04-30", antes:15, notas:"Castilla-La Mancha. Fuera de plazo se descuenta un 1 % por cada día hábil de retraso. A veces se amplía: compruébalo en el DOCM."},
+  {id:"pac-mod", titulo:"Último día para modificar la solicitud de la PAC", mes:"05-15", antes:7, notas:"Castilla-La Mancha (15 de mayo en 2025): añadir parcelas o ayudas. Las parcelas en monitorización se pueden ajustar hasta el 31 de agosto."},
+  {id:"pac-mon", titulo:"Último día para ajustar parcelas en monitorización (PAC)", mes:"08-31", antes:10, notas:"Castilla-La Mancha (Orden 7/2025, art. 6.3)."},
+  {id:"fito-2027", titulo:"El registro de tratamientos fitosanitarios pasa a ser electrónico", fecha:"2027-01-01", antes:30, notas:"Real Decreto 1039/2025: el papel vale hasta el 31/12/2026. Desde el 1/1/2027 los tratamientos se anotan en formato electrónico. La app ya lo lleva: revisa en Informes › Cuaderno digital que no falte ningún dato."},
+];
+function siguienteFechaAnual(mmdd){ const y = Number(today().slice(0,4)); const d = `${y}-${mmdd}`; return d >= today() ? d : `${y+1}-${mmdd}`; }
+function anadirPlazosOficiales(){
+  let n = 0;
+  for (const p of PLAZOS_OFICIALES) {
+    if (DB.recordatorios.some(r=>r.oficial===p.id)) continue;
+    const fecha = p.fecha || siguienteFechaAnual(p.mes);
+    if (p.fecha && p.fecha < today()) continue;
+    DB.recordatorios.push({id:uid(), _u:now(), oficial:p.id, titulo:p.titulo, fecha, hora:"09:00", tipo:"Papeleo (PAC, REGA...)", modulo:"Agrícola", repetir:p.mes?"Cada año":"No se repite", antes:p.antes, hecho:false, notas:p.notas});
+    n++;
+  }
+  save(); render(); toast(n ? `${n} plazos añadidos a tus recordatorios` : "Ya tenías todos los plazos oficiales");
+}
+/* El carné de aplicador también entra en el calendario y en la lista de plazos */
+{ const _ev = eventosAuto; eventosAuto = (desde, hasta) => { const E = _ev(desde, hasta);
+  for (const w of DB.trabajadores||[]) if (w.activo && w.carne_cad && w.carne_cad >= desde && w.carne_cad <= hasta) E.push({d:w.carne_cad, c:"var(--partes)", t:`Caduca el carné de aplicador de ${w.nombre}`, go:["partes","trabajadores"]});
+  return E; }; }
+function listaPlazos(dias){
+  const h = today(), fin = addDays(h, dias), L = [];
+  for (const r of DB.recordatorios) { const p = proxima(r); if (!p || p > fin) continue; L.push({d:p, t:r.titulo, s:[r.tipo, r.repetir!=="No se repite"?r.repetir.toLowerCase():""].filter(Boolean).join(" · "), c:"var(--agenda)", edit:["recordatorios", r.id], antes:Number(r.antes||0), oficial:!!r.oficial}); }
+  for (const e of eventosAuto(h, fin)) if (!e.done) L.push({...e, s:"Aviso automático", antes:7});
+  // Lo que ya ha vencido y sigue pendiente
+  for (const m of DB.maquinaria||[]) if (m.itv && m.itv < h) L.push({d:m.itv, t:`ITV o inspección caducada: ${m.nombre}`, s:"Pide cita cuanto antes", c:"var(--partes)", go:["partes","maquinaria"]});
+  for (const w of DB.trabajadores||[]) if (w.activo && w.carne_cad && w.carne_cad < h) L.push({d:w.carne_cad, t:`Carné de aplicador caducado: ${w.nombre}`, s:"No puede aplicar fitosanitarios hasta renovarlo", c:"var(--partes)", go:["partes","trabajadores"]});
+  return L.sort((a,b)=>a.d.localeCompare(b.d));
+}
+UI.plazosD = UI.plazosD || 180;
+TABS.plazos = {title: "Plazos", render(){
+  const L = listaPlazos(UI.plazosD), h = today(), tiene = PLAZOS_OFICIALES.filter(p=>!p.fecha||p.fecha>=h).every(p=>DB.recordatorios.some(r=>r.oficial===p.id));
+  const grupos = {}; for (const e of L) { const k = e.d < h ? "Vencido" : e.d.slice(0,7); (grupos[k] = grupos[k]||[]).push(e); }
+  const nomMes = k => k === "Vencido" ? "Vencido" : new Date(k+"-15T12:00").toLocaleDateString("es-ES",{month:"long", year:"numeric"}).replace(/^./, c=>c.toUpperCase());
+  const falta = e => { const n = daysBetween(h, e.d); return n < 0 ? `<span class="pill crit">hace ${-n} d</span>` : n === 0 ? `<span class="pill crit">hoy</span>` : `<span class="pill ${n <= Math.max(e.antes||0, 7) ? "warn" : ""}">${n === 1 ? "mañana" : `en ${n} días`}</span>`; };
+  return `<div class="toolbar"><select id="plazosD" aria-label="Periodo" style="width:auto">${[[30,"Próximo mes"],[90,"Próximos 3 meses"],[180,"Próximos 6 meses"],[365,"Próximo año"]].map(([v,l])=>`<option value="${v}" ${Number(UI.plazosD)===v?"selected":""}>${l}</option>`).join("")}</select>
+    <span class="grow"></span><button class="btn" data-act="notif">${notifState()}</button><button class="btn" data-act="ics">Añadir al calendario del móvil</button>${tiene?"":`<button class="btn primary" data-act="plazos-of">+ Plazos de la PAC y fitosanitarios</button>`}</div>
+  ${tiene?"":`<p class="banner"><span>Añade los plazos de la solicitud única de la PAC en Castilla-La Mancha y el paso al registro electrónico de fitosanitarios. Se guardan como recordatorios que se repiten cada año y puedes corregir si cambian las fechas.</span></p>`}
+  ${L.length ? Object.entries(grupos).map(([k, es]) => `<section class="panel"><h3>${nomMes(k)}</h3><ul class="alerts">${es.map(e=>`<li ${e.edit?`data-edit="${e.edit[0]}" data-id="${e.edit[1]}"`:`data-go="${e.go[0]}" data-tab="${e.go[1]}"`} class="${e.d<h?"crit":""}" style="cursor:pointer;border-left-color:${e.c}"><div><strong>${esc(e.t)}</strong><small>${fdate(e.d)} · ${esc(e.s||"")}${e.oficial?" · plazo oficial":""}</small></div><span class="when">${falta(e)}</span></li>`).join("")}</ul></section>`).join("")
+    : `<div class="empty">Nada vence en este periodo.</div>`}
+  <p class="muted" style="font-size:.82rem">Reúne tus recordatorios, la ITV o inspección de la maquinaria, el carné de aplicador, los fines de plazo de seguridad, las retiradas de tratamientos y las caducidades del almacén. Para la ITV y el carné, apunta la fecha en Partes › Maquinaria y Partes › Trabajadores.</p>`;
+}};
+document.addEventListener("change", e => { if (e.target.id === "plazosD") { UI.plazosD = Number(e.target.value); render(); } });
+document.addEventListener("click", e => { const el = e.target.closest('[data-act="plazos-of"]'); if (el) anadirPlazosOficiales(); });
+
+/* Aviso al apuntar una cosecha dentro del plazo de seguridad de un tratamiento */
+function plazoSeguridadEn(parcela, fecha){ return DB.fitosanitarios.filter(r=>r.parcela===parcela && r.plazo && r.fecha && r.fecha <= fecha && addDays(r.fecha, r.plazo) > fecha); }
+FORM_EXTRA.push({
+  html:t => t === "cosechas" ? `<p id="plazoAv" class="pill crit" style="white-space:normal" hidden></p>` : "",
+  mount(t){ if (t !== "cosechas") return; const chk = () => { const el = $("#plazoAv"), pa = $("#f_parcela")?.value, f = $("#f_fecha")?.value; if (!el) return; const T = pa && f ? plazoSeguridadEn(pa, f) : [];
+      el.hidden = !T.length; el.textContent = T.length ? `Ojo: ${T.map(r=>`${r.producto} (tratado el ${fdate(r.fecha)}, plazo hasta el ${fdate(addDays(r.fecha, r.plazo))})`).join("; ")}. No se debe cosechar antes de que termine el plazo de seguridad.` : ""; };
+    $("#f_parcela")?.addEventListener("change", chk); $("#f_fecha")?.addEventListener("change", chk); chk(); }
 });
 
 /* ============ Fotos y notas de voz en los registros ============ */
@@ -2674,7 +2775,7 @@ async function cargarTiempo(lat, lng){
   const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
   const c = wxCache[key];
   if (c && Date.now() - c.t < 60*60*1000) return c.d;
-  const u = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,et0_fao_evapotranspiration&past_days=7&forecast_days=7&timezone=auto&wind_speed_unit=kmh`;
+  const u = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,relative_humidity_2m,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_gusts_10m_max,precipitation_probability_max,wind_speed_10m_max,et0_fao_evapotranspiration&past_days=7&forecast_days=7&timezone=auto&wind_speed_unit=kmh`;
   try {
     const r = await fetch(u); if (!r.ok) throw new Error(r.status);
     const d = await r.json(); wxCache[key] = {t: Date.now(), d};
@@ -2737,6 +2838,77 @@ TABS.tiempo = {title: "Tiempo", render(){
   </tbody></table></div><p class="muted" style="font-size:.8rem;margin:0">Datos de Open-Meteo.com. ET0 es la evapotranspiración de referencia, útil para calcular el riego.</p></section>`;
 }};
 document.addEventListener("change", e => { if (e.target.id === "wxSel") { UI.wx = e.target.value; render(); } });
+
+/* ============ Alertas de tiempo: heladas, viento, lluvia fuerte, tormenta y calor en tus parcelas y apiarios ============ */
+const WXA_KEY = "mi-explotacion-alertas-tiempo";
+const WXA_DEF = {activo:true, helada:0, heladaFuerte:-3, racha:50, lluvia:20, calor:38, dias:3};
+const wxaCfg = () => ({...WXA_DEF, ...(DB._meta?.alertasTiempo||{})});
+let wxAlertas = [];
+try { const c = JSON.parse(localStorage.getItem(WXA_KEY)||"null"); if (c && c.dia === today()) wxAlertas = c.A || []; } catch(e) {}
+/* Lugares: una previsión por zona (0,05° ≈ 5 km) para no repetir descargas con parcelas vecinas */
+function lugaresTiempo(){
+  const Z = {};
+  for (const p of DB.parcelas) { if (!p.geo?.length) continue; const c = posDe("parcelas", p.id); if (!c) continue; const k = `${(Math.round(c[0]*20)/20).toFixed(2)},${(Math.round(c[1]*20)/20).toFixed(2)}`; (Z[k] = Z[k] || {pos:c, P:[], A:[]}).P.push(p); }
+  for (const a of DB.apiarios) { const c = apiPos(a); if (!c) continue; const k = `${(Math.round(c[0]*20)/20).toFixed(2)},${(Math.round(c[1]*20)/20).toFixed(2)}`; (Z[k] = Z[k] || {pos:c, P:[], A:[]}).A.push(a); }
+  return Object.values(Z).slice(0, 8);
+}
+const nombresLugar = z => [...z.P.map(p=>p.nombre), ...z.A.map(a=>`apiario ${a.nombre}`)];
+const listaCorta = L => L.length <= 3 ? L.join(", ") : `${L.slice(0,2).join(", ")} y ${L.length-2} más`;
+const diaTxt = d => d === today() ? "hoy" : d === addDays(today(), 1) ? "mañana" : new Date(d+"T12:00").toLocaleDateString("es-ES",{weekday:"long", day:"numeric"});
+/* Calcula los avisos de una previsión para un lugar */
+function avisosTiempo(d, z, cfg){
+  const D = d.daily, A = [], h = today(), lim = addDays(h, cfg.dias - 1), sitio = listaCorta(nombresLugar(z));
+  for (let i=0;i<D.time.length;i++){
+    const f = D.time[i]; if (f < h || f > lim) continue;
+    const tmin = D.temperature_2m_min[i], tmax = D.temperature_2m_max[i], lluvia = D.precipitation_sum[i]||0, racha = D.wind_gusts_10m_max?.[i] ?? D.wind_speed_10m_max[i], wc = D.weather_code?.[i];
+    const base = {d:f, mod:"agri", tab:"tiempo", wx:1};
+    if (tmin != null && tmin <= cfg.helada) A.push({...base, lv: tmin <= cfg.heladaFuerte ? "crit" : "warn", tipo:"helada", t:`Helada ${diaTxt(f)}: ${fnum(tmin)} °C`, s:`${sitio}. ${z.A.length?"Revisa la alimentación de las colmenas. ":""}Protege lo sensible y no riegues ni trates de madrugada.`});
+    if (racha != null && racha >= cfg.racha) A.push({...base, lv: racha >= cfg.racha + 20 ? "crit" : "warn", tipo:"viento", t:`Viento fuerte ${diaTxt(f)}: rachas de ${fnum(Math.round(racha))} km/h`, s:`${sitio}. No pulverices; asegura techos de colmenas y cubiertas.`});
+    if (lluvia >= cfg.lluvia) A.push({...base, lv: lluvia >= cfg.lluvia * 2 ? "crit" : "warn", tipo:"lluvia", t:`Lluvia fuerte ${diaTxt(f)}: ${fnum(Math.round(lluvia))} mm`, s:`${sitio}. Evita tratar y abonar antes; puede lavar el producto.`});
+    if (wc === 96 || wc === 99) A.push({...base, lv:"crit", tipo:"granizo", t:`Tormenta con posible granizo ${diaTxt(f)}`, s:`${sitio}. Revisa tu seguro agrario y recoge lo que puedas.`});
+    else if (wc === 95) A.push({...base, lv:"warn", tipo:"tormenta", t:`Tormenta ${diaTxt(f)}`, s:sitio});
+    if (tmax != null && tmax >= cfg.calor) A.push({...base, lv:"warn", tipo:"calor", t:`Calor extremo ${diaTxt(f)}: ${fnum(tmax)} °C`, s:`${sitio}. Agua y sombra para el ganado y las colmenas; trata solo a primera hora.`});
+  }
+  // Has tratado o abonado hoy y llueve en las próximas 6 horas
+  const H = d.hourly, ahora = new Date(Date.now() - new Date().getTimezoneOffset()*6e4).toISOString().slice(0,13), i0 = H.time.findIndex(t=>t.slice(0,13) >= ahora);
+  if (i0 >= 0) { const ll = H.precipitation.slice(i0, i0+6).reduce((s,x)=>s+(x||0),0);
+    if (ll >= 1) for (const p of z.P) { const tr = [...DB.fitosanitarios, ...DB.abonados].filter(r=>r.parcela===p.id && r.fecha===h); if (tr.length) A.push({d:h, mod:"agri", tab:"fitosanitarios", wx:1, lv:"warn", tipo:"lavado", t:`Lluvia tras el tratamiento en ${p.nombre}`, s:`Se esperan ${fnum(Math.round(ll*10)/10)} mm en las próximas 6 horas. Anota la eficacia y valora repetir.`}); } }
+  return A;
+}
+async function revisarTiempo(){
+  const cfg = wxaCfg(); if (!cfg.activo) { wxAlertas = []; return; }
+  const Z = lugaresTiempo(); if (!Z.length) { wxAlertas = []; return; }
+  const out = []; let ok = 0;
+  for (const z of Z) { try { const d = await cargarTiempo(z.pos[0], z.pos[1]); ok++; out.push(...avisosTiempo(d, z, cfg)); } catch(e) {} }
+  if (!ok) return; // sin conexión ni datos guardados: se mantienen los avisos de hoy
+  // Un aviso por tipo y día: se juntan los lugares
+  const M = {}; for (const a of out) { const k = `${a.tipo}|${a.d}|${a.t}`; if (!M[k]) M[k] = a; }
+  const antes = JSON.stringify(wxAlertas); wxAlertas = Object.values(M);
+  try { localStorage.setItem(WXA_KEY, JSON.stringify({dia:today(), A:wxAlertas})); } catch(e) {}
+  if (JSON.stringify(wxAlertas) !== antes) { if (UI.mod === "inicio" && !$("#dlg")?.open) render(); comprobarAvisos(); }
+}
+ALERTS.push(() => wxaCfg().activo ? wxAlertas : []);
+setTimeout(revisarTiempo, 2500);
+setInterval(revisarTiempo, 3*60*60*1000);
+window.addEventListener("online", () => setTimeout(revisarTiempo, 3000));
+AFTER_SAVE.push(() => { clearTimeout(revisarTiempo._t); revisarTiempo._t = setTimeout(revisarTiempo, 5000); });
+
+SETTINGS.push(() => { const c = wxaCfg(); return `<form class="panel" id="wxaF"><h2>Alertas de tiempo</h2>
+  <p class="muted" style="margin:0">La app mira cada pocas horas la previsión de tus parcelas dibujadas en el mapa y de tus apiarios, y te avisa en el inicio (y con notificación, si las tienes activadas) de lo que pueda afectar a tratamientos, cosecha o animales en los próximos días.</p>
+  <div class="fld chk"><input type="checkbox" id="wxa_activo" ${c.activo?"checked":""}><label for="wxa_activo">Avisarme del tiempo</label></div>
+  <div class="grid2">
+    <div class="fld"><label for="wxa_helada">Helada: temperatura mínima igual o menor que (°C)</label><input id="wxa_helada" type="number" step="0.5" value="${c.helada}"></div>
+    <div class="fld"><label for="wxa_heladaFuerte">Helada fuerte (°C)</label><input id="wxa_heladaFuerte" type="number" step="0.5" value="${c.heladaFuerte}"></div>
+    <div class="fld"><label for="wxa_racha">Viento: rachas de (km/h)</label><input id="wxa_racha" type="number" value="${c.racha}"></div>
+    <div class="fld"><label for="wxa_lluvia">Lluvia fuerte: más de (mm al día)</label><input id="wxa_lluvia" type="number" value="${c.lluvia}"></div>
+    <div class="fld"><label for="wxa_calor">Calor extremo: máxima de (°C)</label><input id="wxa_calor" type="number" value="${c.calor}"></div>
+    <div class="fld"><label for="wxa_dias">Días por delante</label><select id="wxa_dias">${[1,2,3,4,5,7].map(n=>`<option ${n===Number(c.dias)?"selected":""}>${n}</option>`).join("")}</select></div>
+  </div>
+  <div class="toolbar"><button class="btn primary" type="submit">Guardar</button><span class="muted" style="font-size:.85rem">Previsión de Open-Meteo. No sustituye a los avisos oficiales de AEMET.</span></div></form>`; });
+document.addEventListener("submit", e => { if (e.target.id !== "wxaF") return; e.preventDefault();
+  const v = k => Number($("#wxa_"+k).value);
+  DB._meta.alertasTiempo = {activo:$("#wxa_activo").checked, helada:v("helada"), heladaFuerte:v("heladaFuerte"), racha:v("racha"), lluvia:v("lluvia"), calor:v("calor"), dias:v("dias")};
+  save(); toast("Alertas de tiempo guardadas"); revisarTiempo(); });
 
 /* ============ Informes oficiales en PDF (jsPDF + autotable) ============ */
 const INFORMES = {
@@ -3165,7 +3337,9 @@ document.addEventListener("input", e => { if (e.target.id === "f_horas") e.targe
 
 /* ---- Integración: costes, calendario y avisos ---- */
 { const _p = rentParcelas, _l = rentLotes, _a = rentApiarios;
-  const sumar = (r, filtro) => { const c = DB.partes.filter(p=>filtro(p)&&enAno(p)).reduce((s,p)=>s+costeParte(p),0); if (c) { r.gas += c; r.det["Partes de trabajo"] = c; } return r; };
+  // Cada parte se desglosa en mano de obra, gasoil, taller, maquinaria por €/h y productos (ver costesParte en costes.js)
+  const NOM = {mo:"Mano de obra", gasoil:"Gasoil", taller:"Taller", maq:"Maquinaria (€/h)", prod:"Productos de los partes"};
+  const sumar = (r, filtro) => { for (const p of DB.partes.filter(p=>filtro(p)&&enAno(p))) for (const [k, v] of Object.entries(costesParte(p, UI.year))) if (v) { r.gas += v; r.det[NOM[k]] = (r.det[NOM[k]]||0) + v; } return r; };
   rentParcelas = () => _p().map((r,i) => sumar(r, p => p.parcela === DB.parcelas[i].id));
   rentLotes = () => _l().map(r => sumar(r, p => p.lote && p.lote === r.n));
   rentApiarios = () => _a().map((r,i) => sumar(r, p => p.apiario === DB.apiarios[i].id));
@@ -3614,6 +3788,7 @@ async function montarTiempoHoy(){
     <dt>Viento máx.</dt><dd>${fnum(D.wind_speed_10m_max[i])} km/h</dd>
     <dt>Para tratar</dt><dd>${hoyW.length ? hoyW.map(w=>`<span class="pill ok">${w.desde.slice(11,13)}–${Number(w.hasta.slice(11,13))+1} h</span>`).join(" ") : W[0] ? `Hoy no. Próxima: ${fh(W[0].desde)}` : "Sin ventanas en 7 días"}</dd></dl></div>
     ${d._old?`<p class="muted" style="font-size:.8rem;margin:0">Datos guardados del ${new Date(d._old).toLocaleString("es-ES")}</p>`:""}
+    ${wxAlertas.length?`<ul class="alerts">${wxAlertas.slice(0,3).map(a=>`<li class="${a.lv}"><div><strong>${esc(a.t)}</strong></div></li>`).join("")}</ul>`:""}
     <button class="btn" data-go="agri" data-tab="tiempo">Ver previsión completa</button>`;
 }
 { const _vi = viewInicio; viewInicio = () => { const h = _vi(); const i = h.indexOf('<div class="grid2">'); return i < 0 ? h + panelHoy() : h.slice(0, i) + panelHoy() + h.slice(i); }; }
@@ -3921,15 +4096,17 @@ const csvNum = v => v === "" || v == null ? "" : String(v).replace(".", ",");
 function bajarCSV(nombre, cab, filas){ download(nombre, "﻿" + [cab, ...filas].map(f=>f.map(csvCell).join(";")).join("\r\n"), "text/csv;charset=utf-8"); }
 const sig = id => { const p = DB.parcelas.find(x=>x.id===id) || {}; return {prov:p.provincia||"", mun:p.municipio||"", pol:p.poligono??"", par:p.parcela??"", rec:p.recinto??"", sup:p.superficie??"", uso:(p.uso||"").split(" · ")[0], nombre:p.nombre||""}; };
 const cultivoDe = (pid, y) => DB.cultivos.find(c=>c.parcela===pid && String(c.campana)===String(y));
+const variedadDe = r => cultivoDe(r.parcela, (r.fecha||"").slice(0,4))?.variedad || "";
 const carneDe = nombre => { const w = DB.trabajadores?.find(x=>nombre && (nombre.includes(x.nombre) || x.nombre.includes(nombre))); return w ? `${w.carne||""}` : ""; };
 
+{ const F = S.fitosanitarios.fields, i = F.findIndex(f=>f.k==="equipo"); if (!F.some(f=>f.k==="asesor")) F.splice(i < 0 ? F.length : i, 0, {k:"asesor", l:"Asesor (nombre y nº de inscripción, si lo hay)"}); }
 const EXPORTS = {
   siex_parcelas: {g:"siex", t:"Parcelas y cultivos", run(y){ bajarCSV(`siex-parcelas-${y}.csv`,
     ["Campaña","Provincia","Municipio","Agregado","Zona","Polígono","Parcela","Recinto","Superficie SIGPAC (ha)","Uso SIGPAC","Cultivo","Variedad","Fecha siembra o plantación","Superficie cultivada (ha)","Sistema de explotación","Nombre o paraje"],
     DB.parcelas.map(p => { const s = sig(p.id), c = cultivoDe(p.id, y); return [y, s.prov, s.mun, 0, 0, s.pol, s.par, s.rec, csvNum(s.sup), s.uso, c?.cultivo||"", c?.variedad||"", fdate(c?.siembra), csvNum(c?.superficie??""), p.riego||"", s.nombre]; })); }},
   siex_fito: {g:"siex", t:"Tratamientos fitosanitarios", run(y){ bajarCSV(`siex-tratamientos-${y}.csv`,
-    ["Fecha","Provincia","Municipio","Polígono","Parcela","Recinto","Cultivo","Superficie tratada (ha)","Problema fitosanitario","Producto comercial","Nº registro","Materia activa","Dosis","Unidad de dosis","Plazo de seguridad (días)","Aplicador","Carné del aplicador","Equipo (ROMA)","Eficacia","Observaciones"],
-    DB.fitosanitarios.filter(r=>(r.fecha||"").startsWith(y)).map(r => { const s = sig(r.parcela); return [fdate(r.fecha), s.prov, s.mun, s.pol, s.par, s.rec, r.cultivo||"", csvNum(r.sup_tratada), r.problema||"", r.producto||"", r.registro||"", r.materia||"", csvNum(r.dosis), r.unidad||"", r.plazo??"", r.aplicador||"", carneDe(r.aplicador), r.equipo||"", r.eficacia||"", r.notas||""]; })); }},
+    ["Fecha","Provincia","Municipio","Polígono","Parcela","Recinto","Cultivo","Variedad","Superficie tratada (ha)","Problema fitosanitario","Producto comercial","Nº registro","Materia activa","Dosis","Unidad de dosis","Plazo de seguridad (días)","Aplicador","Carné del aplicador","Asesor","Equipo (ROMA)","Eficacia","Observaciones"],
+    DB.fitosanitarios.filter(r=>(r.fecha||"").startsWith(y)).map(r => { const s = sig(r.parcela); return [fdate(r.fecha), s.prov, s.mun, s.pol, s.par, s.rec, r.cultivo||"", variedadDe(r), csvNum(r.sup_tratada), r.problema||"", r.producto||"", r.registro||"", r.materia||"", csvNum(r.dosis), r.unidad||"", r.plazo??"", r.aplicador||"", carneDe(r.aplicador), r.asesor||"", r.equipo||"", r.eficacia||"", r.notas||""]; })); }},
   siex_fert: {g:"siex", t:"Fertilización", run(y){ bajarCSV(`siex-fertilizacion-${y}.csv`,
     ["Fecha","Provincia","Municipio","Polígono","Parcela","Recinto","Tipo de fertilizante","Producto","Riqueza N-P-K","Cantidad (kg/ha)","Superficie (ha)","N aplicado (kg/ha)","P2O5 aplicado (kg/ha)","K2O aplicado (kg/ha)"],
     DB.abonados.filter(r=>(r.fecha||"").startsWith(y)).map(r => { const s = sig(r.parcela), n = String(r.riqueza||"").split(/[-\/ ]+/).map(Number); const u = i => n[i] && r.cantidad ? csvNum(Math.round(n[i]*r.cantidad)/100) : "";
@@ -3941,7 +4118,7 @@ const EXPORTS = {
   siex_json: {g:"siex", t:"Cuaderno completo (JSON)", run(y){ const T = DB._meta.titular||{};
     const j = {formato:"Mi Explotación · cuaderno digital", version:1, campana:Number(y), titular:{nombre:T.nombre, nif:T.nif, ccaa:T.ccaa}, generado:new Date().toISOString(),
       parcelas: DB.parcelas.map(p=>({...sig(p.id), id:p.id, sistema:p.riego, cultivo:cultivoDe(p.id,y)?.cultivo||null, variedad:cultivoDe(p.id,y)?.variedad||null, contorno:p.geo||null})),
-      tratamientos: DB.fitosanitarios.filter(r=>(r.fecha||"").startsWith(y)).map(r=>({fecha:r.fecha, recinto:sig(r.parcela), cultivo:r.cultivo, problema:r.problema, producto:r.producto, registro:r.registro, materia_activa:r.materia, dosis:r.dosis, unidad:r.unidad, superficie_ha:r.sup_tratada, plazo_seguridad:r.plazo, aplicador:r.aplicador, equipo_roma:r.equipo, eficacia:r.eficacia})),
+      tratamientos: DB.fitosanitarios.filter(r=>(r.fecha||"").startsWith(y)).map(r=>({fecha:r.fecha, recinto:sig(r.parcela), cultivo:r.cultivo, problema:r.problema, producto:r.producto, registro:r.registro, materia_activa:r.materia, dosis:r.dosis, unidad:r.unidad, superficie_ha:r.sup_tratada, plazo_seguridad:r.plazo, aplicador:r.aplicador, carne_aplicador:carneDe(r.aplicador), asesor:r.asesor||null, variedad:variedadDe(r)||null, equipo_roma:r.equipo, eficacia:r.eficacia, observaciones:r.notas||null})),
       fertilizacion: DB.abonados.filter(r=>(r.fecha||"").startsWith(y)).map(r=>({fecha:r.fecha, recinto:sig(r.parcela), tipo:r.tipo, producto:r.producto, riqueza:r.riqueza, kg_ha:r.cantidad, superficie_ha:r.superficie})),
       labores: DB.labores.filter(r=>(r.fecha||"").startsWith(y)).map(r=>({fecha:r.fecha, recinto:sig(r.parcela), labor:r.tipo, descripcion:r.descripcion})),
       cosechas: DB.cosechas.filter(r=>(r.fecha||"").startsWith(y)).map(r=>({fecha:r.fecha, recinto:sig(r.parcela), cultivo:r.cultivo, kg:r.cantidad, destino:r.comprador, lote:r.albaran}))};
@@ -3983,6 +4160,7 @@ TABS.oficial = {title: "Exportaciones oficiales", render(){
   const C = censoA(UI.censoF);
   return `<div class="toolbar"><label for="repY2" class="muted">Campaña</label><select id="repY2" style="width:auto">${years().map(v=>`<option ${v===y?"selected":""}>${v}</option>`).join("")}</select></div>
   <div class="rep-grid">
+  ${revisionCuaderno(y)}
   <section class="panel" style="box-shadow:inset 0 3px 0 var(--agri)"><h3>Cuaderno digital de explotación (SIEX)</h3>
     <p class="muted" style="margin:0;font-size:.88rem">Parcelas identificadas por recinto SIGPAC, tratamientos, fertilización y cosechas de la campaña ${esc(y)}, en hojas CSV para Excel y en un archivo JSON completo.</p>
     <div class="toolbar">${grupo("siex")}</div></section>
@@ -3995,10 +4173,45 @@ TABS.oficial = {title: "Exportaciones oficiales", render(){
     <p class="muted" style="margin:0;font-size:.88rem">REGA ${esc(DB._meta.titular?.rega_api || "sin indicar (añádelo en Ajustes)")} · ${DB.apiarios.length} asentamientos · ${DB.colmenas.filter(c=>c.estado!=="Muerta"&&c.estado!=="Vendida").length} colmenas.</p>
     <div class="toolbar">${grupo("api")}</div></section>
   </div>
-  <p class="muted" style="font-size:.85rem;max-width:80ch">El cuaderno digital se presenta a través del SIEX del Ministerio y de las aplicaciones de cada comunidad autónoma. Cada una tiene su propia plantilla de importación, así que estos archivos llevan los datos ordenados por recinto SIGPAC y con los campos que piden (RD 1311/2012 y RD 1054/2022) para que tu entidad o tu técnico los cargue. Comprueba el formato exacto con tu oficina comarcal o tu ADS antes de enviarlos.</p>`;
+  <p class="muted" style="font-size:.85rem;max-width:80ch">El Ministerio no ha publicado todavía un formato de archivo único para entregar el cuaderno: cada comunidad autónoma usa su aplicación o su plantilla. Estos archivos llevan los datos ordenados por recinto SIGPAC y con los campos del registro de tratamientos (RD 1311/2012) y del cuaderno digital (RD 1054/2022) para que tu entidad, tu ADS o tu técnico los carguen. Pregunta el formato exacto en tu oficina comarcal agraria antes de enviarlos.</p>`;
 }};
 document.addEventListener("click", e => { const el = e.target.closest('[data-act="exp"]'); if (!el) return; try { EXPORTS[el.dataset.k].run(UI.repY); toast("Archivo descargado"); } catch(err) { console.warn(err); toast("No se pudo generar el archivo"); } });
 document.addEventListener("change", e => { if (e.target.id === "censoF" && e.target.value) { UI.censoF = e.target.value; render(); } if (e.target.id === "repY2") { UI.repY = e.target.value; render(); } });
+
+/* ============ Revisión del cuaderno: qué falta para que el registro esté completo ============ */
+/* Datos del registro de tratamientos del anexo III del RD 1311/2012 y de identificación del cuaderno (RD 1054/2022) */
+const FALTAS_FITO = [["fecha","fecha"],["parcela","parcela"],["cultivo","cultivo"],["problema","plaga o enfermedad"],["producto","producto"],["registro","nº de registro del producto"],["dosis","dosis"],["sup_tratada","superficie tratada"],["aplicador","aplicador"],["equipo","equipo de aplicación (ROMA)"],["eficacia","eficacia"]];
+function faltasCuaderno(y){
+  const vacio = v => v === "" || v == null, F = [];
+  const T = DB._meta.titular || {};
+  if (!T.nombre || !T.nif) F.push({t:"Datos del titular", s:"Falta el nombre o el NIF del titular", go:["ajustes"]});
+  for (const p of DB.parcelas) { const f = ["provincia","municipio","poligono","parcela","recinto"].filter(k=>vacio(p[k])); if (f.length) F.push({t:`Parcela ${p.nombre}`, s:`Falta la referencia SIGPAC: ${f.join(", ")}`, edit:["parcelas", p.id]});
+    if (!cultivoDe(p.id, y)) F.push({t:`Parcela ${p.nombre}`, s:`Sin cultivo apuntado en la campaña ${y}`, go:["agri","cultivos"], leve:1}); }
+  for (const r of DB.fitosanitarios.filter(r=>(r.fecha||"").startsWith(y))) { const f = FALTAS_FITO.filter(([k])=>vacio(r[k])).map(x=>x[1]);
+    if (r.aplicador && !carneDe(r.aplicador) && !/carn[eé]/i.test(r.aplicador)) f.push("carné del aplicador (añade al aplicador en Partes › Trabajadores)");
+    if (f.length) F.push({t:`Tratamiento del ${fdate(r.fecha)}: ${r.producto||"sin producto"}`, s:`Falta: ${f.join(", ")}`, edit:["fitosanitarios", r.id]}); }
+  for (const r of DB.abonados.filter(r=>(r.fecha||"").startsWith(y))) { const f = [["producto","producto"],["cantidad","cantidad"],["superficie","superficie"],["riqueza","riqueza N-P-K"]].filter(([k])=>vacio(r[k])).map(x=>x[1]);
+    if (f.length) F.push({t:`Abonado del ${fdate(r.fecha)}: ${r.producto||"sin producto"}`, s:`Falta: ${f.join(", ")}`, edit:["abonados", r.id]}); }
+  for (const m of DB.maquinaria||[]) if (/Pulverizador|Abonadora/.test(m.tipo||"") && !m.roma) F.push({t:`${m.nombre}`, s:"Falta el nº ROMA del equipo", edit:["maquinaria", m.id], leve:1});
+  return F;
+}
+function revisionCuaderno(y){
+  const F = faltasCuaderno(y), graves = F.filter(f=>!f.leve), h = today(), dias = daysBetween(h, "2027-01-01");
+  const n = DB.fitosanitarios.filter(r=>(r.fecha||"").startsWith(y)).length;
+  const li = f => `<li class="${f.leve?"":"warn"}" ${f.edit?`data-edit="${f.edit[0]}" data-id="${f.edit[1]}"`:`data-go="${f.go[0]}"${f.go[1]?` data-tab="${f.go[1]}"`:""}`} style="cursor:pointer"><div><strong>${esc(f.t)}</strong><small>${esc(f.s)}</small></div></li>`;
+  return `<section class="panel" style="grid-column:1/-1;box-shadow:inset 0 3px 0 var(--agri)"><h3>Cuaderno digital: ¿está completo?</h3>
+    <dl class="kv">
+      <dt>Tratamientos fitosanitarios</dt><dd>${dias > 0 ? `Desde el <strong>1 de enero de 2027</strong> (dentro de ${dias} días) el registro tiene que llevarse en formato electrónico; el papel vale hasta el 31/12/2026 (Real Decreto 1039/2025). Lo que apuntas aquí ya cumple ese formato.` : `Desde el 1 de enero de 2027 el registro de tratamientos es electrónico (Real Decreto 1039/2025). Lo que apuntas aquí ya cumple ese formato.`}</dd>
+      <dt>Cuaderno completo (CUE)</dt><dd>Hoy es voluntario. Será obligatorio con la próxima PAC para quien tenga más de 30 ha de cultivo, más de 5 ha de regadío o invernaderos (Real Decreto 34/2025). Todavía no hay fecha.</dd>
+    </dl>
+    ${F.length ? `<p style="margin:0"><span class="pill ${graves.length?"warn":"ok"}">${graves.length ? `${graves.length} registro${graves.length>1?"s":""} incompleto${graves.length>1?"s":""}` : "Lo obligatorio está completo"}</span> <span class="muted" style="font-size:.88rem">Campaña ${esc(y)} · ${n} tratamiento${n===1?"":"s"}. Toca cada uno para completarlo.</span></p>
+      <ul class="alerts">${F.slice(0, 12).map(li).join("")}</ul>${F.length > 12 ? `<details><summary class="muted" style="cursor:pointer">Ver ${F.length-12} más</summary><ul class="alerts" style="margin-top:6px">${F.slice(12).map(li).join("")}</ul></details>` : ""}`
+      : `<p style="margin:0"><span class="pill ok">Completo</span> <span class="muted" style="font-size:.88rem">Campaña ${esc(y)} · ${n} tratamiento${n===1?"":"s"} con todos los datos.</span></p>`}
+  </section>`;
+}
+/* Un aviso en el inicio si hay tratamientos de este año sin completar */
+ALERTS.push(() => { const y = today().slice(0,4), n = faltasCuaderno(y).filter(f=>f.edit?.[0]==="fitosanitarios").length;
+  return n ? [{lv:"", t:`${n} tratamiento${n>1?"s":""} sin completar en el cuaderno`, s:"Revisa qué falta en Informes › Exportaciones oficiales", d:"", mod:"informes", tab:"oficial"}] : []; });
 
 /* ============ Dictado por voz: campos de texto y partes completos ============ */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -4233,6 +4446,83 @@ document.addEventListener("click", async e => {
   else if (a === "export-adj") exportar(true);
 });
 document.addEventListener("change", e => { if (e.target.id === "syAuto") { SY.auto = e.target.checked; sySave(); } });
+
+/* ============ Uso sin cobertura: aviso, cambios pendientes de subir, mapas descargados y almacenamiento ============ */
+let syPend = false;
+try { syPend = localStorage.getItem("mi-explotacion-pend") === "1"; } catch(e) {}
+const setPend = v => { syPend = v; try { localStorage.setItem("mi-explotacion-pend", v ? "1" : "0"); } catch(e) {} barraRed(); };
+AFTER_SAVE.push(() => { if (SY.session) setPend(true); });
+{ const _s = sincronizar; sincronizar = async function(manual){ const antes = SY.last; await _s(manual); if (SY.last !== antes) setPend(false); }; }
+function barraRed(){
+  let b = $("#netBar");
+  if (!b) { b = document.createElement("div"); b.id = "netBar"; b.className = "netbar no-print"; b.setAttribute("role", "status"); document.body.appendChild(b); }
+  const off = !navigator.onLine;
+  if (off) b.innerHTML = `<strong>Sin cobertura.</strong> Puedes seguir apuntando: se guarda en este dispositivo${SY.session ? " y se subirá solo al volver la conexión" : ""}.${syPend && SY.session ? " <span class=\"pill warn\">Cambios por subir</span>" : ""}`;
+  b.hidden = !off; document.body.style.paddingTop = off ? `${b.offsetHeight}px` : "";
+}
+window.addEventListener("online", () => { barraRed(); toast(syPend && SY.session ? "Conexión recuperada. Subiendo cambios…" : "Conexión recuperada"); });
+window.addEventListener("offline", barraRed);
+setTimeout(barraRed, 0);
+
+/* Descarga de las teselas de ortofoto alrededor de parcelas y apiarios (zoom 12 a 17) para verlas en el campo sin datos */
+const tile = (lat, lng, z) => { const n = 2 ** z, x = Math.floor((lng + 180) / 360 * n), r = lat * Math.PI / 180, y = Math.floor((1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * n); return [x, y]; };
+function teselasExplotacion(zMax = 17, limite = 3000){
+  const B = [];
+  for (const p of DB.parcelas) if (p.geo?.length) { const la = p.geo.map(q=>q[0]), lo = p.geo.map(q=>q[1]); B.push([Math.min(...la), Math.min(...lo), Math.max(...la), Math.max(...lo)]); }
+  for (const a of DB.apiarios) { const q = apiPos(a); if (q) B.push([q[0], q[1], q[0], q[1]]); }
+  const U = new Set();
+  for (let z = 12; z <= zMax; z++) for (const [s, w, n, e] of B) {
+    const m = 0.003; const [x0, y0] = tile(n + m, w - m, z), [x1, y1] = tile(s - m, e + m, z);
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) U.add(`${z}/${x}/${y}`);
+    if (U.size > limite) return {T:[...U].slice(0, limite), cortado:true, zonas:B.length};
+  }
+  return {T:[...U], cortado:false, zonas:B.length};
+}
+const urlOrto = (z, x, y) => `https://www.ign.es/wmts/pnoa-ma?service=WMTS&request=GetTile&version=1.0.0&format=image/jpeg&layer=OI.OrthoimageCoverage&style=default&tilematrixset=GoogleMapsCompatible&tilematrix=${z}&tilerow=${y}&tilecol=${x}`;
+let descargaMapa = null;
+async function bajarMapas(){
+  if (descargaMapa) return;
+  if (!navigator.onLine) return toast("Necesitas conexión para descargar los mapas");
+  if (!("caches" in window)) return toast("Este navegador no permite guardar mapas");
+  const {T, cortado, zonas} = teselasExplotacion();
+  if (!zonas) return toast("Dibuja tus parcelas o sitúa tus apiarios en el Mapa primero");
+  descargaMapa = {hechas:0, total:T.length, fallos:0}; render();
+  const c = await caches.open("mi-explotacion-mapa");
+  let i = 0;
+  const trabajo = async () => { while (i < T.length) { const [z, x, y] = T[i++].split("/"); const u = urlOrto(z, x, y);
+    try { if (!(await c.match(u))) { const r = await fetch(u, {mode:"no-cors"}); if (r.ok || r.type === "opaque") await c.put(u, r); else descargaMapa.fallos++; } } catch(e) { descargaMapa.fallos++; }
+    descargaMapa.hechas++; const el = $("#mapaProg"); if (el) el.textContent = `${descargaMapa.hechas} de ${descargaMapa.total}`; } };
+  await Promise.all([1,2,3,4].map(trabajo));
+  const r = descargaMapa; descargaMapa = null;
+  try { localStorage.setItem("mi-explotacion-mapas", JSON.stringify({fecha:today(), n:r.total - r.fallos})); } catch(e) {}
+  toast(r.fallos ? `Mapas guardados con ${r.fallos} fallos. Vuelve a intentarlo con mejor conexión.` : `Mapas guardados${cortado ? " (solo los más cercanos: hay muchas parcelas)" : ""}`);
+  render();
+}
+async function infoAlmacen(){
+  const el = $("#almInfo"); if (!el) return;
+  let txt = [];
+  try { if (navigator.storage?.estimate) { const e = await navigator.storage.estimate(); txt.push(`Ocupa ${fnum(Math.round((e.usage||0)/1048576))} MB en este dispositivo`); } } catch(e) {}
+  try { if (navigator.storage?.persisted) txt.push(await navigator.storage.persisted() ? "guardado protegido: el navegador no lo borrará para liberar espacio" : "guardado sin proteger"); } catch(e) {}
+  try { const sw = await navigator.serviceWorker?.getRegistration(); txt.push(sw?.active ? "la app está guardada para abrirse sin conexión" : "la app aún no está guardada para usarse sin conexión (ábrela una vez con cobertura desde la dirección instalada)"); } catch(e) {}
+  el.textContent = txt.join(" · ") + ".";
+}
+SETTINGS.push(() => { let m = null; try { m = JSON.parse(localStorage.getItem("mi-explotacion-mapas")||"null"); } catch(e) {}
+  return `<section class="panel"><h2>Uso sin cobertura</h2>
+  <p class="muted" style="margin:0">Todo lo que apuntas se guarda primero en este dispositivo, así que la app funciona en el campo sin internet. Al volver la cobertura se sincroniza sola${SY.session ? "" : " (si activas la sincronización en la nube)"}.</p>
+  <p id="almInfo" class="muted" style="font-size:.88rem;margin:0">Comprobando…</p>
+  <div class="toolbar"><button class="btn" data-act="persist">Proteger los datos de este dispositivo</button></div>
+  <h3>Mapas para el campo</h3>
+  <p class="muted" style="margin:0">Descarga la ortofoto de alrededor de tus parcelas y apiarios para verla sin datos. Hazlo con wifi: pueden ser varios cientos de imágenes.${m ? ` Última descarga: ${fdate(m.fecha)} (${fnum(m.n)} imágenes).` : ""}</p>
+  <div class="toolbar">${descargaMapa ? `<span class="pill warn">Descargando… <span id="mapaProg">${descargaMapa.hechas} de ${descargaMapa.total}</span></span>` : `<button class="btn primary" data-act="mapas-off">Descargar mapas de mi explotación</button><span class="muted" style="font-size:.85rem">Unas ${fnum(teselasExplotacion().T.length)} imágenes</span>`}</div>
+  <p class="muted" style="font-size:.82rem;margin:0">La previsión del tiempo y los avisos usan la última descarga cuando no hay conexión.</p></section>`; });
+{ const _r = render; render = function(){ _r(); if (UI.mod === "ajustes") infoAlmacen(); }; }
+document.addEventListener("click", async e => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  if (el.dataset.act === "mapas-off") bajarMapas();
+  else if (el.dataset.act === "persist") { try { const ok = await navigator.storage?.persist?.(); toast(ok ? "Datos protegidos" : "El navegador no lo permite; instala la app en la pantalla de inicio"); } catch(err) { toast("Este navegador no lo permite"); } infoAlmacen(); }
+});
+/* Al instalarse en la pantalla de inicio se pide que no se borren los datos */
+window.addEventListener("appinstalled", () => { try { navigator.storage?.persist?.(); } catch(e) {} });
 
 /* ============ Arranque ============ */
 (async () => {

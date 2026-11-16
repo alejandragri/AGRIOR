@@ -143,3 +143,80 @@ document.addEventListener("click", async e => {
   else if (a === "export-adj") exportar(true);
 });
 document.addEventListener("change", e => { if (e.target.id === "syAuto") { SY.auto = e.target.checked; sySave(); } });
+
+/* ============ Uso sin cobertura: aviso, cambios pendientes de subir, mapas descargados y almacenamiento ============ */
+let syPend = false;
+try { syPend = localStorage.getItem("mi-explotacion-pend") === "1"; } catch(e) {}
+const setPend = v => { syPend = v; try { localStorage.setItem("mi-explotacion-pend", v ? "1" : "0"); } catch(e) {} barraRed(); };
+AFTER_SAVE.push(() => { if (SY.session) setPend(true); });
+{ const _s = sincronizar; sincronizar = async function(manual){ const antes = SY.last; await _s(manual); if (SY.last !== antes) setPend(false); }; }
+function barraRed(){
+  let b = $("#netBar");
+  if (!b) { b = document.createElement("div"); b.id = "netBar"; b.className = "netbar no-print"; b.setAttribute("role", "status"); document.body.appendChild(b); }
+  const off = !navigator.onLine;
+  if (off) b.innerHTML = `<strong>Sin cobertura.</strong> Puedes seguir apuntando: se guarda en este dispositivo${SY.session ? " y se subirá solo al volver la conexión" : ""}.${syPend && SY.session ? " <span class=\"pill warn\">Cambios por subir</span>" : ""}`;
+  b.hidden = !off; document.body.style.paddingTop = off ? `${b.offsetHeight}px` : "";
+}
+window.addEventListener("online", () => { barraRed(); toast(syPend && SY.session ? "Conexión recuperada. Subiendo cambios…" : "Conexión recuperada"); });
+window.addEventListener("offline", barraRed);
+setTimeout(barraRed, 0);
+
+/* Descarga de las teselas de ortofoto alrededor de parcelas y apiarios (zoom 12 a 17) para verlas en el campo sin datos */
+const tile = (lat, lng, z) => { const n = 2 ** z, x = Math.floor((lng + 180) / 360 * n), r = lat * Math.PI / 180, y = Math.floor((1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * n); return [x, y]; };
+function teselasExplotacion(zMax = 17, limite = 3000){
+  const B = [];
+  for (const p of DB.parcelas) if (p.geo?.length) { const la = p.geo.map(q=>q[0]), lo = p.geo.map(q=>q[1]); B.push([Math.min(...la), Math.min(...lo), Math.max(...la), Math.max(...lo)]); }
+  for (const a of DB.apiarios) { const q = apiPos(a); if (q) B.push([q[0], q[1], q[0], q[1]]); }
+  const U = new Set();
+  for (let z = 12; z <= zMax; z++) for (const [s, w, n, e] of B) {
+    const m = 0.003; const [x0, y0] = tile(n + m, w - m, z), [x1, y1] = tile(s - m, e + m, z);
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) U.add(`${z}/${x}/${y}`);
+    if (U.size > limite) return {T:[...U].slice(0, limite), cortado:true, zonas:B.length};
+  }
+  return {T:[...U], cortado:false, zonas:B.length};
+}
+const urlOrto = (z, x, y) => `https://www.ign.es/wmts/pnoa-ma?service=WMTS&request=GetTile&version=1.0.0&format=image/jpeg&layer=OI.OrthoimageCoverage&style=default&tilematrixset=GoogleMapsCompatible&tilematrix=${z}&tilerow=${y}&tilecol=${x}`;
+let descargaMapa = null;
+async function bajarMapas(){
+  if (descargaMapa) return;
+  if (!navigator.onLine) return toast("Necesitas conexión para descargar los mapas");
+  if (!("caches" in window)) return toast("Este navegador no permite guardar mapas");
+  const {T, cortado, zonas} = teselasExplotacion();
+  if (!zonas) return toast("Dibuja tus parcelas o sitúa tus apiarios en el Mapa primero");
+  descargaMapa = {hechas:0, total:T.length, fallos:0}; render();
+  const c = await caches.open("mi-explotacion-mapa");
+  let i = 0;
+  const trabajo = async () => { while (i < T.length) { const [z, x, y] = T[i++].split("/"); const u = urlOrto(z, x, y);
+    try { if (!(await c.match(u))) { const r = await fetch(u, {mode:"no-cors"}); if (r.ok || r.type === "opaque") await c.put(u, r); else descargaMapa.fallos++; } } catch(e) { descargaMapa.fallos++; }
+    descargaMapa.hechas++; const el = $("#mapaProg"); if (el) el.textContent = `${descargaMapa.hechas} de ${descargaMapa.total}`; } };
+  await Promise.all([1,2,3,4].map(trabajo));
+  const r = descargaMapa; descargaMapa = null;
+  try { localStorage.setItem("mi-explotacion-mapas", JSON.stringify({fecha:today(), n:r.total - r.fallos})); } catch(e) {}
+  toast(r.fallos ? `Mapas guardados con ${r.fallos} fallos. Vuelve a intentarlo con mejor conexión.` : `Mapas guardados${cortado ? " (solo los más cercanos: hay muchas parcelas)" : ""}`);
+  render();
+}
+async function infoAlmacen(){
+  const el = $("#almInfo"); if (!el) return;
+  let txt = [];
+  try { if (navigator.storage?.estimate) { const e = await navigator.storage.estimate(); txt.push(`Ocupa ${fnum(Math.round((e.usage||0)/1048576))} MB en este dispositivo`); } } catch(e) {}
+  try { if (navigator.storage?.persisted) txt.push(await navigator.storage.persisted() ? "guardado protegido: el navegador no lo borrará para liberar espacio" : "guardado sin proteger"); } catch(e) {}
+  try { const sw = await navigator.serviceWorker?.getRegistration(); txt.push(sw?.active ? "la app está guardada para abrirse sin conexión" : "la app aún no está guardada para usarse sin conexión (ábrela una vez con cobertura desde la dirección instalada)"); } catch(e) {}
+  el.textContent = txt.join(" · ") + ".";
+}
+SETTINGS.push(() => { let m = null; try { m = JSON.parse(localStorage.getItem("mi-explotacion-mapas")||"null"); } catch(e) {}
+  return `<section class="panel"><h2>Uso sin cobertura</h2>
+  <p class="muted" style="margin:0">Todo lo que apuntas se guarda primero en este dispositivo, así que la app funciona en el campo sin internet. Al volver la cobertura se sincroniza sola${SY.session ? "" : " (si activas la sincronización en la nube)"}.</p>
+  <p id="almInfo" class="muted" style="font-size:.88rem;margin:0">Comprobando…</p>
+  <div class="toolbar"><button class="btn" data-act="persist">Proteger los datos de este dispositivo</button></div>
+  <h3>Mapas para el campo</h3>
+  <p class="muted" style="margin:0">Descarga la ortofoto de alrededor de tus parcelas y apiarios para verla sin datos. Hazlo con wifi: pueden ser varios cientos de imágenes.${m ? ` Última descarga: ${fdate(m.fecha)} (${fnum(m.n)} imágenes).` : ""}</p>
+  <div class="toolbar">${descargaMapa ? `<span class="pill warn">Descargando… <span id="mapaProg">${descargaMapa.hechas} de ${descargaMapa.total}</span></span>` : `<button class="btn primary" data-act="mapas-off">Descargar mapas de mi explotación</button><span class="muted" style="font-size:.85rem">Unas ${fnum(teselasExplotacion().T.length)} imágenes</span>`}</div>
+  <p class="muted" style="font-size:.82rem;margin:0">La previsión del tiempo y los avisos usan la última descarga cuando no hay conexión.</p></section>`; });
+{ const _r = render; render = function(){ _r(); if (UI.mod === "ajustes") infoAlmacen(); }; }
+document.addEventListener("click", async e => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  if (el.dataset.act === "mapas-off") bajarMapas();
+  else if (el.dataset.act === "persist") { try { const ok = await navigator.storage?.persist?.(); toast(ok ? "Datos protegidos" : "El navegador no lo permite; instala la app en la pantalla de inicio"); } catch(err) { toast("Este navegador no lo permite"); } infoAlmacen(); }
+});
+/* Al instalarse en la pantalla de inicio se pide que no se borren los datos */
+window.addEventListener("appinstalled", () => { try { navigator.storage?.persist?.(); } catch(e) {} });

@@ -116,7 +116,9 @@ document.addEventListener("input", e => { if (e.target.id === "f_horas") e.targe
 
 /* ---- Integración: costes, calendario y avisos ---- */
 { const _p = rentParcelas, _l = rentLotes, _a = rentApiarios;
-  const sumar = (r, filtro) => { const c = DB.partes.filter(p=>filtro(p)&&enAno(p)).reduce((s,p)=>s+costeParte(p),0); if (c) { r.gas += c; r.det["Partes de trabajo"] = c; } return r; };
+  // Cada parte se desglosa en mano de obra, gasoil, taller, maquinaria por €/h y productos (ver costesParte en costes.js)
+  const NOM = {mo:"Mano de obra", gasoil:"Gasoil", taller:"Taller", maq:"Maquinaria (€/h)", prod:"Productos de los partes"};
+  const sumar = (r, filtro) => { for (const p of DB.partes.filter(p=>filtro(p)&&enAno(p))) for (const [k, v] of Object.entries(costesParte(p, UI.year))) if (v) { r.gas += v; r.det[NOM[k]] = (r.det[NOM[k]]||0) + v; } return r; };
   rentParcelas = () => _p().map((r,i) => sumar(r, p => p.parcela === DB.parcelas[i].id));
   rentLotes = () => _l().map(r => sumar(r, p => p.lote && p.lote === r.n));
   rentApiarios = () => _a().map((r,i) => sumar(r, p => p.apiario === DB.apiarios[i].id));
