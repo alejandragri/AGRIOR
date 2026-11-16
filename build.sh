@@ -2,7 +2,7 @@
 # Genera dist/ (PWA instalable, librerías locales) y build/artifact.html (vista previa con librerías de cdnjs)
 set -e
 cd "$(dirname "$0")"
-JS="src/js/core.js src/js/inventario.js src/js/costes.js src/js/agenda.js src/js/adjuntos.js src/js/mapa.js src/js/sigpac.js src/js/pac.js src/js/tiempo.js src/js/informes.js src/js/guiado.js src/js/partes.js src/js/taller.js src/js/combustible.js src/js/hoy.js src/js/ventas.js src/js/jornada.js src/js/oficial.js src/js/voz.js src/js/facturas.js src/js/campanas.js src/js/lonja.js src/js/sync.js src/js/zz-boot.js"
+JS="src/js/core.js src/js/inventario.js src/js/costes.js src/js/agenda.js src/js/adjuntos.js src/js/mapa.js src/js/sigpac.js src/js/pac.js src/js/tiempo.js src/js/informes.js src/js/guiado.js src/js/partes.js src/js/taller.js src/js/combustible.js src/js/hoy.js src/js/ventas.js src/js/jornada.js src/js/oficial.js src/js/voz.js src/js/facturas.js src/js/campanas.js src/js/lonja.js src/js/riego.js src/js/abonado.js src/js/seguros.js src/js/ayudas.js src/js/qr.js src/js/voztractor.js src/js/satelite.js src/js/sync.js src/js/zz-boot.js"
 mkdir -p dist/vendor build
 python3 - "$JS" <<'PY'
 import sys, re
@@ -15,9 +15,10 @@ head, body = shell[:head_end], shell[head_end:]
 app = "<script>\n" + js + "\n</script>"
 cdn = ('<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>\n'
        '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>\n'
-       '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>\n')
+       '<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>\n'
+       '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>\n')
 local = ('<script src="vendor/leaflet.js"></script>\n<script src="vendor/jspdf.umd.min.js"></script>\n'
-         '<script src="vendor/jspdf.plugin.autotable.min.js"></script>\n')
+         '<script src="vendor/jspdf.plugin.autotable.min.js"></script>\n<script src="vendor/qrcode.js"></script>\n')
 open("build/artifact.html","w").write(head + body.replace("<!--SCRIPTS-->", cdn + app))
 doc = ('<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\n'
        '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
