@@ -121,3 +121,13 @@ ol.traz-line li span{display:block;color:var(--muted, inherit)}
 [hidden]{display:none !important}
 /* Aviso de sin cobertura */
 .netbar{position:fixed;left:0;right:0;top:0;z-index:60;padding:8px 14px;background:var(--warn-bg);color:var(--fg);border-bottom:1px solid var(--line);font-size:.9rem;text-align:center}
+/* Escanear facturas: cada línea en una tarjeta, que se lee bien en el móvil */
+.fac-lin{display:flex;flex-direction:column;gap:8px}
+.fac-item{border:1px solid var(--line);border-radius:var(--r);padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+.fac-r1{display:flex;gap:8px;align-items:center}
+.fac-r1 input[type=checkbox]{width:auto;flex:none;transform:scale(1.2)}
+.fac-r1 input:not([type=checkbox]){flex:1;font-weight:600}
+.fac-r2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fac-r3{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.fac-r3 label{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--muted);font-weight:600}
+@media (max-width:640px){.fac-r2{grid-template-columns:1fr}}

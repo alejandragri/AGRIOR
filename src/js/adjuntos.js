@@ -20,7 +20,8 @@ async function adjURL(id){ if (urlCache.has(id)) return urlCache.get(id); let f 
 
 function adjItem(a, pend){
   const kind = a.kind || (a.mime||"").split("/")[0];
-  return `<div class="adj" data-adj="${a.id}">${kind==="image" ? `<img alt="Foto" data-src="${a.id}" ${pend?`src="${a.url}"`:""}>` : `<audio controls preload="none" data-src="${a.id}" ${pend?`src="${a.url}"`:""}></audio>`}<button type="button" class="x" data-act="adj-del" data-id="${a.id}" aria-label="Quitar">×</button></div>`;
+  const pdf = kind === "pdf" || /pdf/.test(a.mime||"");
+  return `<div class="adj" data-adj="${a.id}">${kind==="image" ? `<img alt="Foto" data-src="${a.id}" ${pend?`src="${a.url}"`:""}>` : pdf ? `<a class="btn" target="_blank" rel="noopener" data-src="${a.id}" ${pend?`href="${a.url}"`:""}>📄 Ver PDF</a>` : `<audio controls preload="none" data-src="${a.id}" ${pend?`src="${a.url}"`:""}></audio>`}<button type="button" class="x" data-act="adj-del" data-id="${a.id}" aria-label="Quitar">×</button></div>`;
 }
 FORM_EXTRA.push({
   html(t, r){
@@ -33,7 +34,7 @@ FORM_EXTRA.push({
   },
   async mount(t){
     if (!CON_ADJ.includes(t)) return;
-    for (const el of document.querySelectorAll("#adjList [data-src]")) { const u = await adjURL(el.dataset.src); if (u) el.src = u; else el.closest(".adj").insertAdjacentHTML("beforeend", `<small class="muted">No está en este dispositivo</small>`); }
+    for (const el of document.querySelectorAll("#adjList [data-src]")) { const u = await adjURL(el.dataset.src); if (u) { if (el.tagName === "A") el.href = u; else el.src = u; } else el.closest(".adj").insertAdjacentHTML("beforeend", `<small class="muted">No está en este dispositivo</small>`); }
     // Las fotos guardadas sin audio se muestran por tipo real
     for (const id of adjPend.keep) { try { const f = await idbGet("files", id); if (f && f.kind !== "image") { const box = document.querySelector(`#adjList [data-adj="${id}"]`); if (box && box.querySelector("img")) box.outerHTML = adjItem({id, kind:f.kind, url:await adjURL(id)}, true); } } catch(e) {} }
   },
