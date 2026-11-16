@@ -1,4 +1,4 @@
-const C = "mi-explotacion-202611161613";
+const C = "mi-explotacion-202611161621";
 const F = ["./", "index.html", "manifest.webmanifest", "icon.svg", "vendor/leaflet.js", "vendor/jspdf.umd.min.js", "vendor/jspdf.plugin.autotable.min.js", "vendor/qrcode.js"];
 const MAPA = "mi-explotacion-mapa", FUENTES = "mi-explotacion-fuentes";
 self.addEventListener("install", e => { e.waitUntil(caches.open(C).then(c => c.addAll(F))); self.skipWaiting(); });

@@ -291,6 +291,16 @@ ol.traz-line li span{display:block;color:var(--muted, inherit)}
 .sat-dias{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
 .sat-dias .btn{flex:none;font-size:.82rem;padding:4px 8px;font-variant-numeric:tabular-nums}
 .sat-ley{display:inline-block;width:80px;height:9px;border-radius:4px;vertical-align:middle;background:linear-gradient(90deg,#a50026,#f46d43,#fee08b,#a6d96a,#1a9850)}
+/* Escanear facturas: cada línea en una tarjeta, que se lee bien en el móvil */
+.fac-lin{display:flex;flex-direction:column;gap:8px}
+.fac-item{border:1px solid var(--line);border-radius:var(--r);padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+.fac-r1{display:flex;gap:8px;align-items:center}
+.fac-r1 input[type=checkbox]{width:auto;flex:none;transform:scale(1.2)}
+.fac-r1 input:not([type=checkbox]){flex:1;font-weight:600}
+.fac-r2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fac-r3{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.fac-r3 label{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--muted);font-weight:600}
+@media (max-width:640px){.fac-r2{grid-template-columns:1fr}}
 
 /* required styles */
 
@@ -1958,7 +1968,8 @@ async function adjURL(id){ if (urlCache.has(id)) return urlCache.get(id); let f 
 
 function adjItem(a, pend){
   const kind = a.kind || (a.mime||"").split("/")[0];
-  return `<div class="adj" data-adj="${a.id}">${kind==="image" ? `<img alt="Foto" data-src="${a.id}" ${pend?`src="${a.url}"`:""}>` : `<audio controls preload="none" data-src="${a.id}" ${pend?`src="${a.url}"`:""}></audio>`}<button type="button" class="x" data-act="adj-del" data-id="${a.id}" aria-label="Quitar">×</button></div>`;
+  const pdf = kind === "pdf" || /pdf/.test(a.mime||"");
+  return `<div class="adj" data-adj="${a.id}">${kind==="image" ? `<img alt="Foto" data-src="${a.id}" ${pend?`src="${a.url}"`:""}>` : pdf ? `<a class="btn" target="_blank" rel="noopener" data-src="${a.id}" ${pend?`href="${a.url}"`:""}>📄 Ver PDF</a>` : `<audio controls preload="none" data-src="${a.id}" ${pend?`src="${a.url}"`:""}></audio>`}<button type="button" class="x" data-act="adj-del" data-id="${a.id}" aria-label="Quitar">×</button></div>`;
 }
 FORM_EXTRA.push({
   html(t, r){
@@ -1971,7 +1982,7 @@ FORM_EXTRA.push({
   },
   async mount(t){
     if (!CON_ADJ.includes(t)) return;
-    for (const el of document.querySelectorAll("#adjList [data-src]")) { const u = await adjURL(el.dataset.src); if (u) el.src = u; else el.closest(".adj").insertAdjacentHTML("beforeend", `<small class="muted">No está en este dispositivo</small>`); }
+    for (const el of document.querySelectorAll("#adjList [data-src]")) { const u = await adjURL(el.dataset.src); if (u) { if (el.tagName === "A") el.href = u; else el.src = u; } else el.closest(".adj").insertAdjacentHTML("beforeend", `<small class="muted">No está en este dispositivo</small>`); }
     // Las fotos guardadas sin audio se muestran por tipo real
     for (const id of adjPend.keep) { try { const f = await idbGet("files", id); if (f && f.kind !== "image") { const box = document.querySelector(`#adjList [data-adj="${id}"]`); if (box && box.querySelector("img")) box.outerHTML = adjItem({id, kind:f.kind, url:await adjURL(id)}, true); } } catch(e) {} }
   },
@@ -4338,6 +4349,660 @@ document.addEventListener("click", e => {
 });
 /* Botón «Parte por voz» en la lista de partes */
 { const _vm = viewModulo; viewModulo = mod => { const h = _vm(mod); return mod === "partes" && UI.tab.partes === "partes" ? h.replace('<button class="btn primary" data-new="partes">', '<button class="btn" data-act="voz-parte">🎙 Parte por voz</button><button class="btn primary" data-new="partes">') : h; }; }
+
+/* ============ Escanear facturas y albaranes ============
+   Se hace una foto (o se elige el PDF que manda el proveedor) y la app lee el texto en el propio
+   móvil, sin mandarlo a ningún sitio. Luego enseña lo que ha entendido para que lo revises antes
+   de guardarlo como compras del almacén o como gastos. */
+const FAC = {};
+
+/* ---- Lector de texto (Tesseract, se descarga la primera vez y queda guardado) ---- */
+function facScript(src){ return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => { s.remove(); rej(new Error(src)); }; document.head.appendChild(s); }); }
+async function facLector(aviso){
+  if (FAC.worker) return FAC.worker;
+  const local = new URL("vendor/ocr/", location.href).href;
+  const cdn = {lib:"https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/", core:"https://cdn.jsdelivr.net/npm/tesseract.js-core@6.1.2", lang:"https://cdn.jsdelivr.net/npm/@tesseract.js-data/spa@1.0.0/4.0.0_best_int"};
+  let rutas = {lib: local, core: local + "core", lang: local + "lang"};
+  if (!window.Tesseract) {
+    try { await facScript(local + "tesseract.min.js"); }
+    catch(e) { rutas = cdn; await facScript(cdn.lib + "tesseract.min.js"); }
+  }
+  FAC.worker = await Tesseract.createWorker("spa", 1, {
+    workerPath: rutas.lib + "worker.min.js", corePath: rutas.core, langPath: rutas.lang,
+    logger: m => aviso?.(m)
+  });
+  return FAC.worker;
+}
+/* Prepara la foto: tamaño adecuado y en gris, que se lee mejor */
+async function facPreparar(file){
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(2.2, 2400 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  const x = c.getContext("2d"); x.filter = "grayscale(1) contrast(1.25)"; x.drawImage(bmp, 0, 0, c.width, c.height);
+  return c;
+}
+
+/* ---- Entender el texto ---- */
+const facNorm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+function facNum(s){
+  s = String(s).replace(/[€\s]/g, "").replace(/[Oo](?=\d)|(?<=\d)[Oo]/g, "0");
+  if (!/\d/.test(s)) return NaN;
+  const c = s.lastIndexOf(","), p = s.lastIndexOf(".");
+  if (c >= 0 && p >= 0) s = c > p ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+  else if (c >= 0) s = /^-?\d{1,3}(,\d{3})+$/.test(s) && !/,\d{2}$/.test(s) ? s.replace(/,/g, "") : s.replace(",", ".");
+  else if (p >= 0 && /^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
+  return Number(s);
+}
+const FAC_UNID = {kg:"kg", kgs:"kg", kilos:"kg", k:"kg", l:"L", lt:"L", lts:"L", litros:"L", litro:"L", ud:"ud", uds:"ud", u:"ud", un:"ud", unid:"ud", unidades:"ud", saco:"sacos", sacos:"sacos", sc:"sacos", dosis:"dosis", tiras:"tiras", t:"t", tm:"t", tn:"t"};
+const FAC_NO_LINEA = /\b(total|subtotal|base|imponible|i\.?v\.?a|cuota|recargo|retenci|n\.?i\.?f|c\.?i\.?f|tel[eé]?f|\btel\b|tlf|m[oó]vil|fax|c\.?p\b|telefono|direcci|calle|avda|pol[ií]gono ind|p[aá]gina|vencim|iban|swift|forma de pago|banco|entidad|cuenta|fecha|factura n|albar[aá]n n|cliente|proveedor|registro mercantil|tomo|folio|inscrita|e-?mail|www\.|@)/i;
+const FAC_CAT = [
+  [/semilla|simiente|planta(?!ci)|plant[oó]n|injert/i, "Semillas y plantas", "Semilla"],
+  [/herbicida|fungicida|insecticida|acaricida|glifosato|cobre|azufre|fitosanit|mojante|coadyuvante|\bsc\b|\bwg\b|\bec\b|\bwp\b|\bsl\b/i, "Fitosanitarios", "Fitosanitario"],
+  [/abono|urea|nitrato|sulfato am|fosfato|potas|npk|\b\d{1,2}-\d{1,2}-\d{1,2}\b|n-32|nac\b|estiercol|enmienda|quelato|foliar/i, "Abonos", "Abono"],
+  [/pienso|cebada para|forraje|paja|alfalfa|corrector|bloque|leche en polvo|lactorreemplazante/i, "Piensos", "Pienso"],
+  [/vacuna|antiparasit|antibio|veterin|ivermect|oxitetra|medicament/i, "Veterinario", "Medicamento veterinario"],
+  [/amitraz|apivar|apistan|oxalico|acido formico|varroa|cera|candy|fondant|jarabe/i, "Piensos", "Alimento apícola"],
+  [/gasoleo|gasoil|gasóleo|adblue|combustible|carburante|gasolina/i, "Combustible", "Combustible"],
+  [/reparaci|recambio|neumatic|filtro|aceite (de )?motor|aceite hidraul|correa|rodamiento|cuchilla|reja|bateria|mano de obra taller|taller|itv/i, "Maquinaria", "Otro"],
+  [/seguro|poliza|agroseguro/i, "Seguros", ""],
+];
+function facCategoria(txt){ for (const [re, cat, tipo] of FAC_CAT) if (re.test(txt)) return {cat, tipo}; return {cat:"Otros", tipo:"Otro"}; }
+function facProducto(desc){
+  const toks = s => facNorm(s).split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+  const d = new Set(toks(desc)); let best = null, bs = 0;
+  for (const p of DB.productos) {
+    const pt = toks(p.nombre); if (!pt.length) continue;
+    let s = pt.filter(w => d.has(w)).length / pt.length;
+    if (p.registro && facNorm(desc).replace(/\s/g, "").includes(facNorm(p.registro).replace(/\s/g, ""))) s += 1;
+    if (s > bs) { bs = s; best = p; }
+  }
+  return bs >= 0.5 ? best : null;
+}
+function facFecha(txt){
+  const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const cands = [];
+  for (const m of txt.matchAll(/(?<!\d)(\d{1,2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{4}|\d{2})(?!\d)/g)) {
+    let [, d, mo, y] = m; y = y.length === 2 ? "20" + y : y;
+    if (+d >= 1 && +d <= 31 && +mo >= 1 && +mo <= 12 && +y > 2000) cands.push({f:`${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`, i:m.index});
+  }
+  for (const m of facNorm(txt).matchAll(/(\d{1,2})\s+de\s+([a-z]+)\s+(?:de\s+)?(\d{4})/g)) { const mo = meses.indexOf(m[2]) + 1; if (mo) cands.push({f:`${m[3]}-${String(mo).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`, i:m.index}); }
+  if (!cands.length) return "";
+  // La que está más cerca de la palabra «fecha»; si no, la primera
+  const fi = facNorm(txt).search(/fecha/);
+  if (fi >= 0) cands.sort((a, b) => Math.abs(a.i - fi) - Math.abs(b.i - fi));
+  return cands.find(c => c.f <= addDays(today(), 7))?.f || cands[0].f;
+}
+function facLeerTexto(txt){
+  const lineas = txt.split(/\r?\n/).map(l => l.replace(/[|_]{1,}/g, " ").replace(/\s{2,}/g, "  ").trim()).filter(Boolean);
+  const nifPropio = facNorm(DB._meta.titular?.nif).replace(/[^a-z0-9]/g, "");
+  const o = {fecha: facFecha(txt), numero:"", proveedor:"", nif:"", total:null, base:null, tipo: /albar[aá]n/i.test(txt) && !/factura/i.test(txt) ? "Albarán" : "Factura", lineas:[]};
+  // NIF o CIF del proveedor (el primero que no sea el tuyo)
+  for (const m of txt.toUpperCase().matchAll(/\b([A-HJ-NP-SUVW])[\s.\-]?(\d{7})[\s.\-]?([0-9A-J])\b|\b(\d{8})[\s.\-]?([A-Z])\b/g)) {
+    const v = m[0].replace(/[\s.\-]/g, ""); if (facNorm(v) !== nifPropio) { o.nif = v; break; }
+  }
+  const nm = txt.match(/(?:factura|fra\.?|albar[aá]n|n[ºo°]\s*(?:de\s*)?(?:factura|documento))\s*(?:n[ºo°.]*|num\.?|n[uú]mero|no\.?)?\s*[:#.]?\s*([A-Z]{0,4}[\s\-\/]?\d[A-Z0-9\-\/.]{1,18})/i);
+  if (nm) o.numero = nm[1].replace(/\s+/g, "").replace(/[.\-\/]$/, "");
+  // Proveedor: uno que ya conozcas si aparece; si no, una línea con S.L., S.A., cooperativa...
+  const conocidos = [...new Set([...DB.compras.map(c => c.proveedor), ...DB.productos.map(p => p.proveedor)].filter(Boolean))];
+  o.proveedor = conocidos.find(p => facNorm(txt).includes(facNorm(p))) || "";
+  if (!o.proveedor) {
+    const tit = facNorm(DB._meta.titular?.nombre);
+    const limpia = l => l.replace(/\s+(factura|albar[aá]n|fra\.)(\s.*)?$/i, "").replace(/\s{2,}.*/, "").trim();
+    const ok = l => { l = limpia(l); return /[a-z]{3}/i.test(l) && !(tit && facNorm(l).includes(tit)) && !/^(factura|albar|fecha|cliente|c\/|calle|avda)/i.test(l); };
+    o.proveedor = limpia(lineas.slice(0, 12).find(l => /(^|[\s,])(s\.?\s?l\.?(u\.?)?|s\.?\s?a\.?(u\.?)?|s\.?\s?coop\.?|cooperativa|s\.?a\.?t\.?|sociedad|agro\w*|comercial|suministros|hermanos|hnos\.?)(?=[\s,]|$)/i.test(limpia(l)) && ok(l)) || lineas.slice(0, 5).find(l => ok(l) && (limpia(l).match(/\d/g) || []).length < 3) || "").slice(0, 80);
+  }
+  // Total y base
+  const ultimoNum = l => { const ns = (l.match(/-?\d[\d.,\s]*\d|\d/g) || []).map(s => facNum(s.trim())).filter(n => !isNaN(n)); return ns.length ? ns[ns.length - 1] : null; };
+  for (const l of lineas) {
+    const n = facNorm(l);
+    if (/total/.test(n) && !/subtotal|total base|total bruto|total linea|total dto|total descuento/.test(n)) { const v = ultimoNum(l); if (v != null && v > 0) o.total = v; }
+    if (/base\s*imponible|total\s*base|^base\b|subtotal|total bruto/.test(n)) { const v = ultimoNum(l); if (v != null && v > 0 && o.base == null) o.base = v; }
+  }
+  // Líneas de producto: descripción seguida de columnas de números (cantidad, precio, importe)
+  for (const l of lineas) {
+    if (FAC_NO_LINEA.test(l)) continue;
+    const tk = l.split(/\s+/), cols = []; let unidad = "", i = tk.length - 1;
+    for (; i >= 0; i--) {
+      const t = tk[i].replace(/[€%]/g, ""), tn = facNorm(t).replace(/\.$/, "");
+      if (t === "") continue;
+      const pegado = t.match(/^(\d[\d.,]*)(kg|kgs|l|lt|lts|ud|uds)\.?$/i);
+      if (pegado) { cols.unshift(facNum(pegado[1])); unidad = unidad || FAC_UNID[pegado[2].toLowerCase()]; continue; }
+      if (/^-?[\dOo][\d.,Oo]*$/.test(t) && /\d/.test(t)) { cols.unshift(facNum(t)); continue; }
+      if (FAC_UNID[tn] && cols.length) { unidad = unidad || FAC_UNID[tn]; continue; }
+      break;
+    }
+    const desc = tk.slice(0, i + 1).join(" ").replace(/^[\d.\-\s]+(?=[a-záéíóúñ])/i, "").trim();
+    const nums = cols.filter(n => !isNaN(n));
+    if (!nums.length || (desc.match(/[a-záéíóúñ]/gi) || []).length < 3) continue;
+    const importe = nums[nums.length - 1];
+    if (!(importe > 0)) continue;
+    let cantidad = "", precio = "";
+    if (nums.length >= 3) {
+      // Busca los dos números cuyo producto da el importe (puede haber descuento o IVA en medio)
+      outer: for (let a = 0; a < nums.length - 1; a++) for (let b = a + 1; b < nums.length - 1; b++) {
+        if (Math.abs(nums[a] * nums[b] - importe) <= Math.max(0.05, importe * 0.12)) { cantidad = nums[a]; precio = nums[b]; break outer; }
+      }
+      if (cantidad === "") { cantidad = nums[0]; precio = nums[nums.length - 2]; }
+    } else if (nums.length === 2) { cantidad = nums[0]; precio = nums[0] ? Math.round(importe / nums[0] * 10000) / 10000 : ""; }
+    const u = unidad || (desc.match(/\b(\d+(?:[.,]\d+)?)\s*(kg|l|lt|litros)\b/i) ? FAC_UNID[facNorm(desc.match(/\b\d+(?:[.,]\d+)?\s*(kg|l|lt|litros)\b/i)[1])] : "");
+    o.lineas.push({desc, cantidad, precio, importe, unidad: u === "t" ? "kg" : u, cantKg: u === "t" && cantidad !== "" ? cantidad * 1000 : null});
+  }
+  for (const L of o.lineas) if (L.cantKg != null) { L.cantidad = L.cantKg; delete L.cantKg; }
+  // Si no hay total, la suma de líneas o el número más alto con céntimos
+  if (o.total == null) { const s = o.lineas.reduce((a, L) => a + L.importe, 0); o.total = s || Math.max(0, ...(txt.match(/\d[\d.]*,\d{2}\b/g) || []).map(facNum).filter(n => !isNaN(n))) || null; }
+  // Quita líneas que en realidad son la suma de otras
+  if (o.lineas.length > 1) o.lineas = o.lineas.filter(L => !(o.total && Math.abs(L.importe - o.total) < 0.01 && o.lineas.length > 1 && /total|suma/i.test(L.desc)));
+  return o;
+}
+
+/* ---- Ventana ---- */
+function facDialogo(){
+  FAC.archivo = null; FAC.res = null;
+  const dlg = $("#dlg");
+  dlg.innerHTML = `<form class="dlg" id="facFrm" novalidate>
+    <header><h2>Escanear factura o albarán</h2><button type="button" class="x" data-act="close" aria-label="Cerrar">×</button></header>
+    <div class="body" id="facBody">
+      <div class="fld full"><p style="margin:0">Hazle una foto a la factura o al albarán, o elige el PDF que te ha mandado el proveedor. La app lee el proveedor, la fecha, los productos, las cantidades y el importe, y te lo enseña para que lo revises antes de guardarlo.</p>
+      <p class="muted" style="margin:6px 0 0;font-size:.88rem">Consejos: ponla sobre la mesa, con buena luz, sin sombras y que salga entera y recta. Todo se lee en tu móvil, la foto no se manda a ningún sitio.</p></div>
+      <div class="fld full"><div class="toolbar">
+        <label class="btn primary" for="facCam" style="cursor:pointer">📷 Hacer foto</label><input type="file" id="facCam" accept="image/*" capture="environment" hidden>
+        <label class="btn" for="facArch" style="cursor:pointer">🖼 Elegir foto o PDF</label><input type="file" id="facArch" accept="image/*,application/pdf,.pdf" hidden>
+      </div></div>
+      <div class="fld full" id="facEstado" aria-live="polite"></div>
+    </div>
+    <footer><button type="button" class="btn" data-act="close">Cancelar</button><button type="submit" class="btn primary" id="facOk" disabled>Guardar</button></footer></form>`;
+  dlg.dataset.t = ""; dlg.dataset.id = "";
+  dlg.showModal();
+}
+function facEstado(html){ const e = $("#facEstado"); if (e) e.innerHTML = html; }
+async function facCargar(file){
+  FAC.archivo = file; let txt = "";
+  try {
+    if (/pdf$/i.test(file.type) || /\.pdf$/i.test(file.name)) {
+      facEstado(`<p class="muted">Leyendo el PDF…</p>`);
+      txt = await pacPdf(await file.arrayBuffer());
+      if (!txt.trim()) return facEstado(`<p style="color:var(--warn)">Este PDF es una imagen escaneada y no trae texto. Haz una captura de pantalla de la factura y elígela como foto.</p>`);
+      FAC.foto = null; FAC.pdf = file;
+    } else {
+      FAC.pdf = null; FAC.foto = await comprimir(file);
+      facEstado(`<div class="muted" id="facProg">Preparando el lector…</div><progress id="facBar" max="1" value="0" style="width:100%"></progress>
+        <p class="muted" style="font-size:.85rem;margin:4px 0 0">La primera vez se descarga el lector de texto (unos 6 MB). Después funciona sin cobertura.</p>`);
+      const w = await facLector(m => {
+        const p = $("#facProg"), b = $("#facBar"); if (!p) return;
+        p.textContent = m.status === "recognizing text" ? "Leyendo la factura…" : /load|download|initializ/i.test(m.status) ? "Preparando el lector de texto…" : "Trabajando…";
+        if (b && typeof m.progress === "number") b.value = m.progress;
+      });
+      const r = await w.recognize(await facPreparar(file));
+      txt = r.data.text || "";
+    }
+  } catch(e) {
+    console.warn(e);
+    return facEstado(`<p style="color:var(--crit)">No se ha podido leer. ${navigator.onLine ? "Prueba con otra foto más nítida." : "La primera vez hace falta cobertura para descargar el lector."}</p>`);
+  }
+  FAC.texto = txt; FAC.res = facLeerTexto(txt);
+  facPintar();
+}
+function facPintar(){
+  const R = FAC.res, fis = typeof fiscal === "function" ? fiscal() : {regimen:"REAGP"};
+  if (!R.lineas.length) R.lineas.push({desc: R.proveedor ? `${R.tipo} de ${R.proveedor}` : R.tipo, cantidad:"", precio:"", importe: R.total || ""});
+  for (const L of R.lineas) if (L.modo == null) {
+    const p = facProducto(L.desc), c = facCategoria(L.desc);
+    L.prod = p?.id || ""; L.cat = c.cat; L.tipo = p?.tipo || c.tipo || "Otro"; L.on = true;
+    L.modo = p ? "alm" : (c.tipo && !/Otro/.test(c.tipo) && L.cantidad !== "" ? "nuevo" : "gasto");
+    if (!L.unidad) L.unidad = p?.unidad || "";
+  }
+  const suma = R.lineas.reduce((a, L) => a + Number(L.importe || 0), 0);
+  const dup = R.numero && DB.compras.some(c => c.factura && facNorm(c.factura) === facNorm(R.numero) && (!R.proveedor || facNorm(c.proveedor) === facNorm(R.proveedor)));
+  const prodOpts = sel => DB.productos.map(p => `<option value="${p.id}" ${sel === p.id ? "selected" : ""}>${esc(p.nombre)}</option>`).join("");
+  const cats = S.economia.fields.find(f => f.k === "categoria").o;
+  const UNI = S.productos.fields.find(f => f.k === "unidad").o;
+  $("#facBody").innerHTML = `
+    ${FAC.foto ? `<div class="fld full" style="height:200px;flex:none;overflow:auto;border:1px solid var(--line);border-radius:var(--r)"><img alt="Foto de la factura" src="${URL.createObjectURL(FAC.foto)}" style="width:100%;display:block;flex:none"></div>` : ""}
+    ${dup ? `<p class="fld full" style="color:var(--warn);margin:0">Ojo: ya tienes apuntada una compra con el número ${esc(R.numero)}. Comprueba que no la estás metiendo dos veces.</p>` : ""}
+    <div class="fld"><label for="fac_fecha">Fecha</label><input type="date" id="fac_fecha" value="${esc(R.fecha || today())}">${R.fecha ? "" : `<span class="help" style="color:var(--warn)">No he encontrado la fecha, revísala</span>`}</div>
+    <div class="fld"><label for="fac_prov">Proveedor</label><input id="fac_prov" value="${esc(R.proveedor)}" list="facProvs"><datalist id="facProvs">${[...new Set(DB.compras.map(c => c.proveedor).filter(Boolean))].map(p => `<option value="${esc(p)}">`).join("")}</datalist>${R.nif ? `<span class="help">NIF leído: ${esc(R.nif)}</span>` : ""}</div>
+    <div class="fld"><label for="fac_num">Nº de ${R.tipo === "Albarán" ? "albarán" : "factura"}</label><input id="fac_num" value="${esc(R.numero)}"></div>
+    <div class="fld"><label for="fac_total">Total de la factura (€)</label><input type="number" step="0.01" inputmode="decimal" id="fac_total" value="${R.total ?? ""}"><span class="help">Suma de las líneas: ${eur.format(suma)}${R.base ? ` · base leída ${eur.format(R.base)}` : ""}</span></div>
+    <div class="fld full chk"><input type="checkbox" id="fac_iva" ${fis.regimen === "REAGP" && R.total && suma && R.total > suma + 0.01 ? "checked" : ""}><label for="fac_iva">Repartir el IVA entre las líneas para que el coste sea el total pagado (lo normal si estás en el régimen especial agrario y no recuperas el IVA)</label></div>
+    <div class="fld full"><label>Qué hay en la factura</label>
+      <div class="fac-lin">
+      ${R.lineas.map((L, i) => `<div class="fac-item" data-i="${i}">
+        <div class="fac-r1"><input type="checkbox" data-fl="on" ${L.on ? "checked" : ""} aria-label="Guardar esta línea"><input data-fl="desc" value="${esc(L.desc)}" aria-label="Concepto" placeholder="Concepto"></div>
+        <div class="fac-r2"><select data-fl="modo" aria-label="Cómo guardarlo">
+            <option value="alm" ${L.modo === "alm" ? "selected" : ""}>Compra de un producto que ya tengo</option>
+            <option value="nuevo" ${L.modo === "nuevo" ? "selected" : ""}>Producto nuevo en el almacén</option>
+            <option value="gasto" ${L.modo === "gasto" ? "selected" : ""}>Solo gasto (no va al almacén)</option></select>
+          ${L.modo === "alm" ? `<select data-fl="prod" aria-label="Producto"><option value="">Elige el producto</option>${prodOpts(L.prod)}</select>` : ""}
+          ${L.modo === "nuevo" ? `<select data-fl="tipo" aria-label="Tipo de producto">${TIPOS_PROD.map(t => `<option ${L.tipo === t ? "selected" : ""}>${t}</option>`).join("")}</select>` : ""}
+          ${L.modo === "gasto" ? `<select data-fl="cat" aria-label="Categoría del gasto">${cats.map(c => `<option ${L.cat === c ? "selected" : ""}>${c}</option>`).join("")}</select>` : ""}</div>
+        <div class="fac-r3">${L.modo === "gasto" ? "" : `<label>Cantidad <input type="number" step="any" inputmode="decimal" data-fl="cantidad" value="${L.cantidad}"></label><label>Unidad <select data-fl="unidad">${UNI.map(u => `<option ${L.unidad === u ? "selected" : ""}>${u}</option>`).join("")}</select></label>`}
+          <label>Importe (€) <input type="number" step="0.01" inputmode="decimal" data-fl="importe" value="${L.importe}"></label></div></div>`).join("")}
+      </div>
+      <div class="toolbar" style="margin-top:6px"><button type="button" class="btn" data-act="fac-add">+ Añadir línea</button><button type="button" class="btn" data-act="fac-otra">Escanear otra</button></div></div>
+    <details class="fld full"><summary class="muted" style="cursor:pointer">Ver el texto que se ha leído</summary><pre style="white-space:pre-wrap;font-size:.8rem;max-height:200px;overflow:auto;background:var(--surface-2);padding:8px;border-radius:var(--r)">${esc(FAC.texto)}</pre></details>
+    <p class="fld full muted" style="margin:0;font-size:.85rem">Revisa sobre todo las cantidades y los importes: la lectura automática puede confundir algún número. Las compras suben el stock del almacén y se apuntan como gasto en Economía. La foto queda guardada en cada apunte.</p>`;
+  $("#facOk").disabled = false;
+}
+/* Copia lo que haya cambiado el usuario en la tabla antes de repintar o guardar */
+function facRecoger(){
+  if (!FAC.res) return;
+  const R = FAC.res;
+  R.fecha = $("#fac_fecha")?.value || R.fecha; R.proveedor = $("#fac_prov")?.value.trim() ?? R.proveedor; R.numero = $("#fac_num")?.value.trim() ?? R.numero;
+  const t = $("#fac_total")?.value; R.total = t === "" || t == null ? null : Number(t); R.iva = !!$("#fac_iva")?.checked;
+  for (const tr of document.querySelectorAll(".fac-lin .fac-item")) {
+    const L = R.lineas[Number(tr.dataset.i)];
+    for (const el of tr.querySelectorAll("[data-fl]")) { const k = el.dataset.fl; L[k] = el.type === "checkbox" ? el.checked : (el.type === "number" ? (el.value === "" ? "" : Number(el.value)) : el.value); }
+  }
+}
+async function facGuardar(){
+  facRecoger();
+  const R = FAC.res; if (!R) return;
+  const L = R.lineas.filter(x => x.on && Number(x.importe) > 0);
+  if (!L.length) return toast("Marca al menos una línea con importe");
+  if (L.some(x => x.modo === "alm" && !x.prod)) return toast("Elige el producto del almacén en cada línea de compra");
+  if (L.some(x => x.modo !== "gasto" && !(Number(x.cantidad) > 0))) return toast("Pon la cantidad en cada compra del almacén");
+  const fecha = R.fecha || today(), suma = L.reduce((a, x) => a + Number(x.importe), 0);
+  const k = R.iva && R.total && suma && R.total > suma ? R.total / suma : 1;
+  const ref = [R.proveedor, R.numero].filter(Boolean).join(" ");
+  const adj = FAC.foto || FAC.pdf;
+  const conFoto = async rec => { if (!adj) return; const id = uid(); await idbPut("files", id, {blob: adj, mime: adj.type || "application/pdf", kind: FAC.foto ? "image" : "pdf", created: now()}); rec._adj = [id]; };
+  let nc = 0, ng = 0;
+  for (const x of L) {
+    const importe = Math.round(Number(x.importe) * k * 100) / 100;
+    if (x.modo === "gasto") {
+      const c = x.cat || "Otros";
+      const mod = {Fitosanitarios:"Agrícola", Abonos:"Agrícola", "Semillas y plantas":"Agrícola", Piensos:"Ganadero", Veterinario:"Ganadero"}[c] || "General";
+      const e = {id: uid(), fecha, tipo:"Gasto", modulo: mod, categoria: c, concepto: `${x.desc}${ref ? ` (${ref})` : ""}`, importe, notas: `Leído de ${R.tipo === "Albarán" ? "un albarán" : "una factura"} escaneado`, _u: now()};
+      await conFoto(e); DB.economia.push(e); ng++;
+      continue;
+    }
+    let pid = x.prod;
+    if (x.modo === "nuevo") {
+      const p = {id: uid(), nombre: x.desc, tipo: x.tipo || "Otro", unidad: x.unidad || "ud", stock_ini: 0, proveedor: R.proveedor, _u: now()};
+      DB.productos.push(p); pid = p.id;
+    }
+    const c = {id: uid(), fecha, producto: pid, cantidad: Number(x.cantidad), importe, proveedor: R.proveedor, factura: R.numero, gasto: true, notas: `Leída de ${R.tipo === "Albarán" ? "un albarán" : "una factura"} escaneado`};
+    await conFoto(c);
+    for (const f of FORM_EXTRA) try { f.collect?.("compras", c); } catch(e) { console.warn(e); }
+    c._u = now(); DB.compras.push(c); nc++;
+  }
+  await save(); $("#dlg").close();
+  go(nc ? "alm" : "eco", nc ? "compras" : "economia");
+  toast([nc && `${nc} compra${nc > 1 ? "s" : ""} apuntada${nc > 1 ? "s" : ""}`, ng && `${ng} gasto${ng > 1 ? "s" : ""} apuntado${ng > 1 ? "s" : ""}`].filter(Boolean).join(" y "));
+}
+document.addEventListener("change", e => {
+  if (e.target.id === "facCam" || e.target.id === "facArch") { const f = e.target.files[0]; if (f) facCargar(f); e.target.value = ""; }
+  if (e.target.matches?.('.fac-lin [data-fl="modo"]')) { facRecoger(); facPintar(); }
+});
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  if (el.dataset.act === "fac-abrir") facDialogo();
+  else if (el.dataset.act === "fac-add") { facRecoger(); FAC.res.lineas.push({desc:"", cantidad:"", precio:"", importe:"", on:true, modo:"gasto", cat:"Otros", tipo:"Otro", unidad:""}); facPintar(); }
+  else if (el.dataset.act === "fac-otra") facDialogo();
+});
+document.addEventListener("submit", e => { if (e.target.id === "facFrm") { e.preventDefault(); facGuardar(); } });
+
+/* Botón en Almacén, en Economía y en el inicio */
+{ const BTN = '<button class="btn" data-act="fac-abrir" title="Hazle una foto y se apunta sola">📷 Escanear factura</button>';
+  const _vm = viewModulo; viewModulo = mod => { let h = _vm(mod);
+    if (mod === "alm") h = h.replace(/<button class="btn primary" data-new="(compras|productos)">/, m => BTN + m);
+    if (mod === "eco" && UI.tab.eco === "economia") h = h.replace('<button class="btn primary" data-new="economia">', BTN + '<button class="btn primary" data-new="economia">');
+    return h; };
+  const _vi = viewInicio; viewInicio = () => _vi().replace(/<button class="btn" data-new="partes">/, BTN.replace("📷 Escanear factura", "📷 Escanear factura o albarán") + '<button class="btn" data-new="partes">');
+}
+
+/* ============ Comparar campañas ============
+   Producción, gastos, ingresos y margen de cada año frente a los anteriores,
+   de todas las parcelas juntas, de un cultivo o de una parcela. */
+MODS.eco.tables = [...MODS.eco.tables.filter(t => t !== "campanas"), "campanas"];
+UI.campVer = UI.campVer || "todo";
+/* Las cuentas de cada parcela en un año (reutiliza las de Rentabilidad) */
+function campanaParcelas(y){ const prev = UI.year; UI.year = String(y); try { return rentParcelas(); } finally { UI.year = prev; } }
+function campanaAnos(){
+  const s = new Set();
+  for (const t of ["cosechas","labores","fitosanitarios","abonados","economia","partes","ventas"]) for (const r of DB[t] || []) if (r.fecha) s.add(r.fecha.slice(0, 4));
+  for (const c of DB.cultivos) if (c.campana) s.add(String(c.campana));
+  s.add(String(new Date().getFullYear()));
+  return [...s].filter(y => /^\d{4}$/.test(y)).sort();
+}
+function campanaFila(R){
+  const o = R.reduce((a, r) => ({ha: a.ha + r.ha, kg: a.kg + r.kg, ing: a.ing + r.ing, gas: a.gas + r.gas}), {ha:0, kg:0, ing:0, gas:0});
+  o.mar = o.ing - o.gas; o.np = R.length; return o;
+}
+function campanaDatos(ver){
+  const [tipo, clave] = ver.split(":");
+  return campanaAnos().map(y => {
+    let R = campanaParcelas(y);
+    if (tipo === "cultivo") R = R.filter(r => facNorm(r.cultivo || "Sin cultivo apuntado") === clave);
+    if (tipo === "parcela") R = R.filter(r => r.id === clave);
+    // Un año sin nada apuntado en ese cultivo o parcela no cuenta
+    R = R.filter(r => r.ing || r.gas || r.kg || tipo === "parcela");
+    return {y, ...campanaFila(R), vacio: !R.some(r => r.ing || r.gas || r.kg)};
+  }).filter(d => !d.vacio);
+}
+function campanaVar(a, b){
+  if (b == null || !isFinite(a) || !isFinite(b) || b === 0) return "";
+  const p = (a - b) / Math.abs(b) * 100; if (Math.abs(p) < 0.5) return `<span class="muted" style="font-size:.78rem">=</span>`;
+  return `<span style="font-size:.78rem;color:var(--${p > 0 ? "ok" : "crit"})">${p > 0 ? "▲" : "▼"} ${fnum(Math.round(Math.abs(p)))} %</span>`;
+}
+function campanaGrafico(D){
+  if (D.length < 2) return "";
+  const W = 440, H = 190, P = 34, max = Math.max(1, ...D.map(d => Math.max(d.ing, d.gas))), min = Math.min(0, ...D.map(d => d.mar));
+  const sx = i => P + (i + 0.5) * (W - P - 8) / D.length, bw = Math.min(26, (W - P) / D.length / 3.4);
+  const sy = v => 10 + (H - 40) * (max - v) / (max - min || 1);
+  const yTicks = [max, max / 2, 0, ...(min < 0 ? [min] : [])];
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Ingresos, costes y margen por campaña" style="width:100%;height:auto;max-height:240px;display:block">
+    ${yTicks.map(v => `<line x1="${P}" x2="${W - 4}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--line)" stroke-width="1"/><text x="${P - 4}" y="${sy(v) + 4}" text-anchor="end" font-size="10" fill="var(--muted)">${fnum(Math.round(v / 1000))}k</text>`).join("")}
+    ${D.map((d, i) => `
+      <rect x="${sx(i) - bw - 1}" y="${sy(d.ing)}" width="${bw}" height="${Math.max(0, sy(0) - sy(d.ing))}" fill="var(--ok)" rx="2"><title>${d.y} ingresos ${eur.format(d.ing)}</title></rect>
+      <rect x="${sx(i) + 1}" y="${sy(d.gas)}" width="${bw}" height="${Math.max(0, sy(0) - sy(d.gas))}" fill="var(--warn)" rx="2"><title>${d.y} costes ${eur.format(d.gas)}</title></rect>
+      <text x="${sx(i)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--fg)">${d.y}</text>`).join("")}
+    <polyline points="${D.map((d, i) => `${sx(i)},${sy(d.mar)}`).join(" ")}" fill="none" stroke="var(--eco)" stroke-width="2.5"/>
+    ${D.map((d, i) => `<circle cx="${sx(i)}" cy="${sy(d.mar)}" r="4" fill="var(--eco)"><title>${d.y} margen ${eur.format(d.mar)}</title></circle>`).join("")}
+  </svg>
+  <div class="muted" style="font-size:.82rem;display:flex;gap:14px;flex-wrap:wrap"><span><span style="display:inline-block;width:10px;height:10px;background:var(--ok);border-radius:2px"></span> Ingresos</span><span><span style="display:inline-block;width:10px;height:10px;background:var(--warn);border-radius:2px"></span> Costes</span><span><span style="display:inline-block;width:14px;height:3px;background:var(--eco);vertical-align:middle"></span> Margen</span></div>`;
+}
+/* Tabla cruzada: cada cultivo por año, en margen por hectárea y kilos por hectárea */
+function campanaCruce(){
+  const A = campanaAnos(), G = {};
+  for (const y of A) for (const r of campanaParcelas(y)) {
+    if (!(r.ing || r.gas || r.kg)) continue;
+    const k = r.cultivo || "Sin cultivo apuntado"; G[k] = G[k] || {}; const g = G[k][y] = G[k][y] || {ha:0, kg:0, mar:0};
+    g.ha += r.ha; g.kg += r.kg; g.mar += r.ing - r.gas;
+  }
+  const C = Object.keys(G).sort(); if (!C.length) return "";
+  const AA = A.filter(y => C.some(c => G[c][y]));
+  return `<section class="panel"><h3>Cada cultivo, año a año</h3><p class="muted" style="margin:2px 0 8px;font-size:.88rem">Margen por hectárea y, debajo, kilos por hectárea. Sirve para ver qué cultivo te ha dado más en cada campaña.</p>
+  <div class="table-wrap"><table><thead><tr><th>Cultivo</th>${AA.map(y => `<th class="num">${y}</th>`).join("")}</tr></thead><tbody>
+  ${C.map(c => `<tr style="cursor:default"><td><strong>${esc(c)}</strong></td>${AA.map(y => { const g = G[c][y]; if (!g) return `<td class="num muted">—</td>`;
+    const m = g.ha ? g.mar / g.ha : null; return `<td class="num">${m == null ? "—" : `<span class="pill ${m >= 0 ? "ok" : "crit"}">${eur.format(m)}/ha</span>`}<br><span class="muted" style="font-size:.8rem">${g.kg && g.ha ? `${fnum(Math.round(g.kg / g.ha))} kg/ha` : ""}</span></td>`; }).join("")}</tr>`).join("")}
+  </tbody></table></div></section>`;
+}
+TABS.campanas = {title: "Comparar campañas", render(){
+  const cultivos = [...new Set(campanaAnos().flatMap(y => campanaParcelas(y).filter(r => r.ing || r.gas || r.kg).map(r => r.cultivo || "Sin cultivo apuntado")))].sort();
+  const ver = UI.campVer, D = campanaDatos(ver);
+  const nombre = ver === "todo" ? "todas las parcelas" : ver.startsWith("cultivo:") ? (cultivos.find(c => facNorm(c) === ver.slice(8)) || "") : (DB.parcelas.find(p => p.id === ver.slice(8))?.nombre || "");
+  const col = (l, f) => ({l, f});
+  const C = [
+    col("Superficie", d => d.ha ? `${fnum(d.ha)} ha` : "—"),
+    col("Producción", d => d.kg ? `${fnum(Math.round(d.kg))} kg` : "—"),
+    col("Kilos por ha", d => d.kg && d.ha ? `${fnum(Math.round(d.kg / d.ha))}` : "—"),
+    col("Ingresos", d => eur.format(d.ing)), col("Costes", d => eur.format(d.gas)),
+    col("Margen", d => `<span class="pill ${d.mar >= 0 ? "ok" : "crit"}">${eur.format(d.mar)}</span>`),
+    col("Margen por ha", d => d.ha ? eur.format(d.mar / d.ha) : "—"),
+    col("Coste por kg", d => d.kg ? eur.format(d.gas / d.kg) : "—"),
+    col("Precio medio cobrado", d => d.kg && d.ing ? `${eur.format(d.ing / d.kg)}/kg` : "—"),
+  ];
+  const vv = [null, d => d.kg, d => d.ha ? d.kg / d.ha : null, d => d.ing, d => -d.gas, d => d.mar, d => d.ha ? d.mar / d.ha : null, d => d.kg ? -d.gas / d.kg : null, d => d.kg ? d.ing / d.kg : null];
+  const ult = D[D.length - 1], ant = D[D.length - 2];
+  let frase = "";
+  if (ult && ant) {
+    const dm = ult.mar - ant.mar;
+    frase = `En ${ult.y} has ganado ${eur.format(Math.abs(dm))} ${dm >= 0 ? "más" : "menos"} que en ${ant.y}${ver === "todo" ? "" : ` con ${nombre}`}` +
+      (ult.kg && ant.kg ? `, con ${fnum(Math.round(Math.abs(ult.kg - ant.kg)))} kg ${ult.kg >= ant.kg ? "más" : "menos"} de cosecha` : "") +
+      ` y ${eur.format(Math.abs(ult.gas - ant.gas))} ${ult.gas >= ant.gas ? "más" : "menos"} de costes.`;
+  }
+  const mejor = D.length > 1 ? D.reduce((a, b) => (b.ha ? b.mar / b.ha : b.mar) > (a.ha ? a.mar / a.ha : a.mar) ? b : a) : null;
+  return `<div class="toolbar">
+      <select id="campVer" aria-label="Qué comparar" style="width:auto;max-width:100%">
+        <option value="todo" ${ver === "todo" ? "selected" : ""}>Todas las parcelas juntas</option>
+        ${cultivos.length ? `<optgroup label="Por cultivo">${cultivos.map(c => `<option value="cultivo:${esc(facNorm(c))}" ${ver === "cultivo:" + facNorm(c) ? "selected" : ""}>${esc(c)}</option>`).join("")}</optgroup>` : ""}
+        ${DB.parcelas.length ? `<optgroup label="Por parcela">${DB.parcelas.map(p => `<option value="parcela:${p.id}" ${ver === "parcela:" + p.id ? "selected" : ""}>${esc(p.nombre)}</option>`).join("")}</optgroup>` : ""}
+      </select>
+      <label class="fld chk" style="margin:0"><input type="checkbox" id="repGen" ${UI.repGen ? "checked" : ""}> <span>Repartir gastos generales por hectáreas</span></label>
+    </div>
+    <p class="muted" style="margin:0;font-size:.88rem">Cada campaña es un año natural. Se cuentan las cosechas y facturas, las labores, los productos del almacén, los partes de trabajo y los apuntes de Economía, igual que en Rentabilidad. En «por cultivo» entra cada parcela el año que tuvo ese cultivo.</p>
+    ${D.length ? `
+    ${frase ? `<section class="panel"><p style="margin:0;font-size:1.02rem">${esc(frase)}${mejor ? ` Tu mejor campaña ha sido ${mejor.y}.` : ""}</p></section>` : ""}
+    <section class="panel"><h3>Campaña a campaña: ${esc(nombre)}</h3>
+      ${campanaGrafico(D)}
+      <div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>Campaña</th>${C.map(c => `<th class="num">${c.l}</th>`).join("")}</tr></thead><tbody>
+      ${D.slice().reverse().map((d, ri) => { const prev = D[D.length - 2 - ri];
+        return `<tr style="cursor:default"><td><strong>${d.y}</strong></td>${C.map((c, i) => `<td class="num">${c.f(d)}${prev && vv[i] ? `<br>${campanaVar(vv[i](d), vv[i](prev))}` : ""}</td>`).join("")}</tr>`; }).join("")}
+      </tbody></table></div>
+      <p class="muted" style="font-size:.82rem;margin:6px 0 0">Las flechas comparan con la campaña anterior. En costes, la flecha verde quiere decir que has gastado menos.</p>
+    </section>` : `<div class="empty">Aún no hay cosechas, gastos ni ingresos apuntados para ${esc(nombre)}.</div>`}
+    ${ver === "todo" ? campanaCruce() : ""}`;
+}};
+document.addEventListener("change", e => { if (e.target.id === "campVer") { UI.campVer = e.target.value; render(); } });
+
+/* Ejemplo: la campaña anterior, para que se vea la comparación */
+SEEDS.push((d, add, D, ids) => {
+  const y = new Date().getFullYear() - 1, F = (m, dd) => `${y}-${String(m).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+  add("cultivos", {campana:y, parcela:ids.p1, cultivo:"Cebada", variedad:"Planet", siembra:F(11, 10), superficie:6.35, estado:"Cosechado"});
+  add("cultivos", {campana:y, parcela:ids.p2, cultivo:"Olivo", variedad:"Picual", superficie:3.1, estado:"Cosechado"});
+  add("cosechas", {fecha:F(6, 28), parcela:ids.p1, cultivo:"Cebada", cantidad:22800, precio:0.198, comprador:"Cooperativa local", albaran:"A-1907"});
+  add("cosechas", {fecha:F(12, 2), parcela:ids.p2, cultivo:"Olivo", cantidad:9300, precio:0.82, comprador:"Almazara"});
+  add("labores", {fecha:F(11, 5), parcela:ids.p1, tipo:"Siembra", maquinaria:"Sembradora 3 m", horas:4, coste:150});
+  add("economia", {fecha:F(11, 8), tipo:"Gasto", modulo:"Agrícola", categoria:"Semillas y plantas", concepto:"Semilla de cebada", importe:610, parcela:ids.p1});
+  add("economia", {fecha:F(2, 20), tipo:"Gasto", modulo:"Agrícola", categoria:"Abonos", concepto:"Abonado de cobertera", importe:980, parcela:ids.p1});
+  add("economia", {fecha:F(4, 15), tipo:"Gasto", modulo:"Agrícola", categoria:"Fitosanitarios", concepto:"Herbicida", importe:240, parcela:ids.p1});
+  add("economia", {fecha:F(11, 20), tipo:"Gasto", modulo:"Agrícola", categoria:"Mano de obra", concepto:"Vareo y recogida", importe:1450, parcela:ids.p2});
+  add("economia", {fecha:F(3, 10), tipo:"Gasto", modulo:"Agrícola", categoria:"Otros", concepto:"Poda", importe:520, parcela:ids.p2});
+});
+
+/* ============ Precios de lonja ============
+   Las lonjas de Castilla-La Mancha (Albacete, Toledo, Talavera...) publican cada semana una hoja
+   en PDF, sin un servicio de datos que la app pueda consultar sola. Por eso los precios se apuntan
+   a mano o se leen de la hoja descargada (o del texto copiado), y se comparan con lo que te cuesta
+   producir cada kilo y con la cosecha que te queda sin vender. */
+const LONJAS = ["Albacete","Toledo","Talavera de la Reina","Ciudad Real","Cooperativa","Otra"];
+const LONJA_UNID = ["€/t","€/kg","€/100 kg","€/l","€/hgdo","€/cabeza"];
+S.cotizaciones = {title: "Precios apuntados", one: "precio", label: r => `${r.producto} ${fdate(r.fecha)}`, fields: [
+  {k:"fecha", l:"Fecha de la sesión", t:"date", req:1, def:today},
+  {k:"lonja", l:"Lonja", t:"sel", o:LONJAS, def:"Albacete"},
+  {k:"producto", l:"Producto tal como sale en la lonja", req:1, help:"Por ejemplo: Cebada pienso >62 kg/hl"},
+  {k:"cultivo", l:"Tu cultivo", help:"Escríbelo igual que en Cultivos (por ejemplo Cebada) para compararlo con tus costes"},
+  {k:"precio", l:"Precio", t:"num", req:1, step:"0.01"},
+  {k:"unidad", l:"Unidad", t:"sel", o:LONJA_UNID, def:"€/t"},
+  {k:"notas", l:"Notas", t:"area"}],
+  cols: ["fecha","lonja","producto","cultivo",{l:"Precio", f:r=>`${fnum(r.precio)} ${r.unidad||""}`, num:1}]};
+MODS.ventas.tables = [...MODS.ventas.tables.filter(t => t !== "mercado"), "mercado"];
+
+const lonjaKg = r => { const p = Number(r.precio); if (!isFinite(p)) return null; return {"€/t":p / 1000, "€/kg":p, "€/100 kg":p / 100}[r.unidad || "€/t"] ?? null; };
+function lonjaCultivos(){ return [...new Set(DB.cultivos.map(c => c.cultivo).filter(Boolean))]; }
+/* Adivina tu cultivo a partir del nombre del producto de la lonja */
+function lonjaAdivina(prod){
+  const m = DB._meta.lonjaMap || {}, n = facNorm(prod);
+  if (m[n] != null) return m[n];
+  const C = lonjaCultivos().sort((a, b) => b.length - a.length);
+  return C.find(c => n.includes(facNorm(c))) || C.find(c => facNorm(c).split(/\s+/)[0].length > 3 && n.split(/[^a-z]+/).includes(facNorm(c).split(/\s+/)[0])) || "";
+}
+/* Coste por kg de un cultivo: el del año actual o, si aún no hay cosecha, el del último año con cosecha */
+function lonjaCoste(cult){
+  const A = (typeof campanaAnos === "function" ? campanaAnos() : [String(new Date().getFullYear())]).slice().reverse();
+  for (const y of A) {
+    const R = campanaParcelas(y).filter(r => facNorm(r.cultivo) === facNorm(cult));
+    const kg = R.reduce((s, r) => s + r.kg, 0), gas = R.reduce((s, r) => s + r.gas, 0);
+    if (kg > 0) return {y, kg: gas / kg};
+  }
+  return null;
+}
+/* Cosecha sin precio de venta (todavía en el almacén o pendiente de liquidar), del año actual y el anterior */
+function lonjaSinVender(cult){
+  const y = new Date().getFullYear();
+  return DB.cosechas.filter(r => facNorm(r.cultivo) === facNorm(cult) && !Number(r.precio) && Number((r.fecha || "").slice(0, 4)) >= y - 1).reduce((s, r) => s + Number(r.cantidad || 0), 0);
+}
+function lonjaSpark(P){
+  if (P.length < 2) return "";
+  const W = 220, H = 46, v = P.map(p => p.v), mx = Math.max(...v), mn = Math.min(...v), r = mx - mn || 1;
+  const pts = P.map((p, i) => `${(4 + i * (W - 8) / (P.length - 1)).toFixed(1)},${(4 + (H - 8) * (mx - p.v) / r).toFixed(1)}`);
+  const last = pts[pts.length - 1].split(",");
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Evolución del precio" style="max-width:100%"><polyline points="${pts.join(" ")}" fill="none" stroke="var(--ventas)" stroke-width="2"/><circle cx="${last[0]}" cy="${last[1]}" r="3.5" fill="var(--ventas)"/></svg>`;
+}
+function lonjaTarjeta(cult){
+  const R = DB.cotizaciones.filter(r => facNorm(r.cultivo) === facNorm(cult) && r.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  if (!R.length) return "";
+  // La serie principal es el producto y la lonja del último precio apuntado
+  const u = R[R.length - 1], serie = R.filter(r => facNorm(r.producto) === facNorm(u.producto) && r.lonja === u.lonja && r.unidad === u.unidad);
+  const pr = serie.length > 1 ? serie[serie.length - 2] : null;
+  const ano = serie.filter(r => r.fecha >= addDays(u.fecha, -365)), vals = ano.map(r => Number(r.precio));
+  const media = vals.reduce((a, b) => a + b, 0) / vals.length, mx = Math.max(...vals), mn = Math.min(...vals);
+  const pos = vals.length > 2 ? Math.round(vals.filter(v => v < Number(u.precio)).length / (vals.length - 1) * 100) : null;
+  const kg = lonjaKg(u), coste = lonjaCoste(cult), sin = lonjaSinVender(cult);
+  const dif = pr ? Number(u.precio) - Number(pr.precio) : null;
+  const frases = [];
+  if (kg != null && coste) frases.push(kg >= coste.kg
+    ? `A este precio ganas unos <strong>${eur.format(kg - coste.kg)} por kilo</strong> (tu coste en ${coste.y} fue de ${eur.format(coste.kg)}/kg).`
+    : `Este precio <strong>no cubre tu coste</strong> de ${eur.format(coste.kg)}/kg de ${coste.y}: perderías ${eur.format(coste.kg - kg)} por kilo.`);
+  else if (kg != null) frases.push(`Cuando apuntes la cosecha y los gastos de ${esc(cult)} verás aquí si este precio cubre tu coste.`);
+  if (vals.length > 2) frases.push(`Está un ${fnum(Math.round(Math.abs(Number(u.precio) - media) / media * 100))} % ${Number(u.precio) >= media ? "por encima" : "por debajo"} de la media de los últimos 12 meses (${fnum(media)} ${esc(u.unidad)}).`);
+  if (sin && kg != null) frases.push(`Tienes ${fnum(Math.round(sin))} kg cosechados sin precio de venta: a este precio valdrían ${eur.format(sin * kg)}.`);
+  return `<section class="panel" style="--mc:var(--ventas)"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">
+      <div><div class="eyebrow">${esc(cult)}</div><h3 style="margin-top:2px">${esc(u.producto)}</h3><div class="muted" style="font-size:.85rem">Lonja de ${esc(u.lonja || "—")} · ${fdate(u.fecha)}</div></div>
+      <div style="text-align:right"><div style="font:700 1.6rem var(--f-display)">${fnum(u.precio)} <span style="font-size:.9rem;font-weight:500">${esc(u.unidad)}</span></div>
+      ${dif != null ? `<div style="font-size:.85rem;color:var(--${dif > 0 ? "ok" : dif < 0 ? "crit" : "muted"})">${dif > 0 ? "▲" : dif < 0 ? "▼" : "="} ${fnum(Math.abs(dif))} desde el ${fdate(pr.fecha)}</div>` : ""}</div></div>
+    ${lonjaSpark(serie.slice(-26).map(r => ({v: Number(r.precio)})))}
+    ${vals.length > 1 ? `<div class="muted" style="font-size:.85rem">Último año: mínimo ${fnum(mn)}, máximo ${fnum(mx)}${pos != null ? ` · más alto que el ${pos} % de las sesiones apuntadas` : ""}</div>` : ""}
+    ${frases.length ? `<ul style="margin:8px 0 0;padding-left:18px">${frases.map(f => `<li>${f}</li>`).join("")}</ul>` : ""}
+  </section>`;
+}
+TABS.mercado = {title: "Precios de lonja", render(){
+  const conPrecio = [...new Set(DB.cotizaciones.map(r => r.cultivo).filter(Boolean).map(c => lonjaCultivos().find(x => facNorm(x) === facNorm(c)) || c))];
+  const sinPrecio = lonjaCultivos().filter(c => !conPrecio.some(x => facNorm(x) === facNorm(c)));
+  const rows = DB.cotizaciones.slice().sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")).slice(0, 40);
+  return `<div class="toolbar">
+      <button class="btn primary" data-new="cotizaciones">+ Apuntar un precio</button>
+      <button class="btn" data-act="lonja-abrir">📄 Leer la hoja de la lonja</button>
+      <button class="btn" data-act="csv" data-t="cotizaciones">Exportar CSV</button></div>
+    <section class="panel"><h3>Dónde ver los precios de cada semana</h3>
+      <p style="margin:4px 0">Las lonjas publican una hoja en PDF cada semana. Descárgala y pulsa «Leer la hoja de la lonja», o copia el texto y pégalo. La app saca los precios y los guarda para ver cómo evolucionan.</p>
+      <ul style="margin:4px 0 0;padding-left:18px">
+        <li><a href="https://www.asajaclm.org/comunicacion/lonjas/" target="_blank" rel="noopener">Lonjas de Albacete, Toledo y Talavera</a> (las publica ASAJA Castilla-La Mancha cada semana)</li>
+        <li><a href="https://www.mapa.gob.es/es/estadistica/temas/estadisticas-agrarias/economia/precios-coyunturales-prod-agricolas" target="_blank" rel="noopener">Precios semanales del Ministerio de Agricultura</a> (medias nacionales y de mercados representativos)</li>
+      </ul></section>
+    ${conPrecio.length ? `<div class="grid2">${conPrecio.map(lonjaTarjeta).join("")}</div>` : `<div class="empty">Aún no has apuntado precios. Apunta el de tu cultivo o lee la hoja de la lonja para empezar a ver cómo va.</div>`}
+    ${sinPrecio.length && conPrecio.length ? `<p class="muted" style="margin:0">Sin precios apuntados: ${sinPrecio.map(esc).join(", ")}.</p>` : ""}
+    ${rows.length ? `<section class="panel"><h3>Últimos precios apuntados</h3><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Lonja</th><th>Producto</th><th>Tu cultivo</th><th class="num">Precio</th></tr></thead><tbody>
+      ${rows.map(r => `<tr data-edit="cotizaciones" data-id="${r.id}" tabindex="0"><td>${fdate(r.fecha)}</td><td>${esc(r.lonja)}</td><td>${esc(r.producto)}</td><td>${esc(r.cultivo)}</td><td class="num">${fnum(r.precio)} ${esc(r.unidad)}</td></tr>`).join("")}
+      </tbody></table></div><p class="muted" style="font-size:.85rem;margin:6px 0 0">Toca una fila para corregirla o borrarla.</p></section>` : ""}`;
+}};
+
+/* ---- Leer la hoja de la lonja ---- */
+function lonjaLeer(txt){
+  const n = facNorm(txt);
+  const lonja = /albacete/.test(n) ? "Albacete" : /talavera/.test(n) ? "Talavera de la Reina" : /toledo/.test(n) ? "Toledo" : /ciudad real/.test(n) ? "Ciudad Real" : "";
+  const fr = txt.match(/(cotizaci[oó]n(es)?|sesi[oó]n|d[ií]a|fecha)[^\n]{0,40}/i);
+  const fecha = (fr && facFecha(fr[0])) || facFecha(txt) || today();
+  const precio = t => /^\d{1,5}[.,]\d{2,3}$/.test(t);
+  const out = []; let seccion = "", grupo = "";
+  for (const linea of txt.split(/\r?\n/)) {
+    const tk = linea.trim().split(/\s+/).filter(Boolean); if (!tk.length) continue;
+    if (!tk.some(t => precio(t) || /^(s\/c|s\.o\.?)$/i.test(t))) {
+      const l = linea.trim();
+      if (/[a-záéíóúñ]/i.test(l) && l.length < 50) { if (l === l.toUpperCase() && !/\d/.test(l)) { seccion = l; grupo = ""; } else if (!/\d{2}/.test(l)) grupo = l; }
+      continue;
+    }
+    let lab = [];
+    for (let i = 0; i < tk.length; i++) {
+      const t = tk[i];
+      if (precio(t) || /^(s\/c|s\.o\.?)$/i.test(t)) {
+        let mn = precio(t) ? facNum(t) : null, mx = mn;
+        if (mn != null && tk[i + 1] === "-" && precio(tk[i + 2] || "")) { mx = facNum(tk[i + 2]); i += 2; }
+        else if (mn != null && /^-\d/.test(tk[i + 1] || "") && precio(tk[i + 1].slice(1))) { mx = facNum(tk[i + 1].slice(1)); i += 1; }
+        // Detrás del precio suele venir la diferencia con la semana anterior: se salta
+        if (/^[+\-]?\d{1,4}[.,]\d{2}$|^=$/.test(tk[i + 1] || "")) i += 1;
+        let label = lab.join(" ").replace(/^[\-–:·.]+|[\-–:·.]+$/g, "").trim();
+        lab = [];
+        if (!/[a-záéíóúñ]/i.test(label)) label = grupo;
+        else if (grupo && label.split(/\s+/).length <= 3 && !facNorm(label).includes(facNorm(grupo).split(/\s+/)[0])) label = `${grupo} ${label}`;
+        if (!label || mn == null) continue;
+        const sec = facNorm(seccion + " " + label);
+        const unidad = /cereal|legum|oleag|forraj|paja|alfalfa|trigo|cebada|avena|centeno|triticale|maiz|girasol|guisante|veza|yero|lenteja|garbanzo/.test(sec) && mn > 40 ? "€/t"
+          : /hgdo|grado/.test(sec) ? "€/hgdo" : mn > 60 ? "€/t" : "€/kg";
+        out.push({producto: label.slice(0, 80), min: mn, max: mx, precio: Math.round((mn + mx) / 2 * 1000) / 1000, unidad});
+      } else lab.push(t);
+    }
+  }
+  const m = DB._meta.lonjaMap || {}, visto = new Set();
+  for (const r of out) { r.cultivo = lonjaAdivina(r.producto); const k = facNorm(r.producto); r.on = !!r.cultivo && (m[k] != null || !visto.has(facNorm(r.cultivo))); if (r.cultivo) visto.add(facNorm(r.cultivo)); }
+  return {lonja, fecha, filas: out};
+}
+const LJ = {};
+function lonjaDialogo(){
+  LJ.res = null;
+  const dlg = $("#dlg");
+  dlg.innerHTML = `<form class="dlg" id="lonjaFrm" novalidate>
+    <header><h2>Leer la hoja de la lonja</h2><button type="button" class="x" data-act="close" aria-label="Cerrar">×</button></header>
+    <div class="body" id="lonjaBody">
+      <p class="fld full" style="margin:0">Elige el PDF de la hoja semanal de la lonja, o abre la hoja, selecciona los precios, cópialos y pégalos aquí.</p>
+      <div style="grid-column:1/-1"><label class="btn" for="lonjaPdf" style="cursor:pointer;justify-self:start">📄 Elegir el PDF de la lonja</label><input type="file" id="lonjaPdf" accept="application/pdf,.pdf,text/plain" hidden></div>
+      <div class="fld full"><label for="lonjaTxt">O pega aquí el texto</label><textarea id="lonjaTxt" rows="5" placeholder="Cebada pienso >62 kg/hl  196,00  0,00&#10;Trigo panificable  224,00  +2,00"></textarea>
+        <div class="toolbar" style="margin-top:6px"><button type="button" class="btn" data-act="lonja-pegar">Leer el texto pegado</button></div></div>
+      <div class="fld full" id="lonjaRes"></div>
+    </div>
+    <footer><button type="button" class="btn" data-act="close">Cancelar</button><button type="submit" class="btn primary" id="lonjaOk" disabled>Guardar los marcados</button></footer></form>`;
+  dlg.dataset.t = ""; dlg.dataset.id = "";
+  dlg.showModal();
+}
+function lonjaPintar(){
+  const R = LJ.res, box = $("#lonjaRes");
+  if (!R.filas.length) { box.innerHTML = `<p style="color:var(--warn);margin:0">No he encontrado precios en este texto. Si el PDF no deja leerse, ábrelo, copia la tabla y pégala arriba.</p>`; $("#lonjaOk").disabled = true; return; }
+  const C = lonjaCultivos();
+  box.innerHTML = `<div class="grid2" style="gap:10px"><div class="fld"><label for="lj_fecha">Fecha de la sesión</label><input type="date" id="lj_fecha" value="${R.fecha}"></div>
+    <div class="fld"><label for="lj_lonja">Lonja</label><select id="lj_lonja">${LONJAS.map(l => `<option ${l === R.lonja ? "selected" : ""}>${l}</option>`).join("")}</select></div></div>
+    <p class="muted" style="font-size:.88rem;margin:8px 0">He encontrado ${R.filas.length} precios. Marca los que te interesan y di a qué cultivo tuyo corresponden. La próxima vez se acordará.</p>
+    <datalist id="ljCult">${C.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
+    <div class="table-wrap"><table class="lj-lin"><thead><tr><th></th><th>Producto</th><th>Tu cultivo</th><th class="num">Precio</th><th>Unidad</th></tr></thead><tbody>
+    ${R.filas.map((r, i) => `<tr data-i="${i}" style="cursor:default"><td><input type="checkbox" data-lj="on" ${r.on ? "checked" : ""} aria-label="Guardar"></td>
+      <td style="min-width:180px"><input data-lj="producto" value="${esc(r.producto)}" aria-label="Producto"></td>
+      <td style="min-width:120px"><input data-lj="cultivo" list="ljCult" value="${esc(r.cultivo)}" aria-label="Tu cultivo"></td>
+      <td class="num"><input type="number" step="0.001" data-lj="precio" value="${r.precio}" style="width:90px" aria-label="Precio">${r.min !== r.max ? `<br><span class="muted" style="font-size:.78rem">${fnum(r.min)} – ${fnum(r.max)}</span>` : ""}</td>
+      <td><select data-lj="unidad" aria-label="Unidad" style="width:auto">${LONJA_UNID.map(u => `<option ${u === r.unidad ? "selected" : ""}>${u}</option>`).join("")}</select></td></tr>`).join("")}
+    </tbody></table></div>`;
+  $("#lonjaOk").disabled = false;
+}
+async function lonjaGuardar(){
+  const R = LJ.res; if (!R) return;
+  for (const tr of document.querySelectorAll(".lj-lin tbody tr")) { const r = R.filas[Number(tr.dataset.i)]; for (const el of tr.querySelectorAll("[data-lj]")) r[el.dataset.lj] = el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value.trim(); }
+  const fecha = $("#lj_fecha").value || today(), lonja = $("#lj_lonja").value;
+  const F = R.filas.filter(r => r.on && r.producto && r.precio > 0);
+  if (!F.length) return toast("Marca al menos un precio");
+  DB._meta.lonjaMap = DB._meta.lonjaMap || {};
+  let n = 0, rep = 0;
+  for (const r of F) {
+    DB._meta.lonjaMap[facNorm(r.producto)] = r.cultivo || "";
+    const ex = DB.cotizaciones.find(x => x.fecha === fecha && x.lonja === lonja && facNorm(x.producto) === facNorm(r.producto));
+    const rec = {...(ex || {id: uid()}), fecha, lonja, producto: r.producto, cultivo: r.cultivo, precio: r.precio, unidad: r.unidad, notas: r.min !== r.max ? `Horquilla ${fnum(r.min)} – ${fnum(r.max)}` : (ex?.notas || ""), _u: now()};
+    if (ex) { DB.cotizaciones = DB.cotizaciones.map(x => x.id === ex.id ? rec : x); rep++; } else { DB.cotizaciones.push(rec); n++; }
+  }
+  DB._meta.lonjaMap_u = now();
+  await save(); $("#dlg").close(); go("ventas", "mercado");
+  toast(`${n} precio${n === 1 ? "" : "s"} guardado${n === 1 ? "" : "s"}${rep ? ` y ${rep} actualizado${rep === 1 ? "" : "s"}` : ""}`);
+}
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  if (el.dataset.act === "lonja-abrir") lonjaDialogo();
+  else if (el.dataset.act === "lonja-pegar") { const t = $("#lonjaTxt").value; if (!t.trim()) return toast("Pega primero el texto de la hoja"); LJ.res = lonjaLeer(t); lonjaPintar(); }
+});
+document.addEventListener("change", async e => {
+  if (e.target.id !== "lonjaPdf") return;
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  $("#lonjaRes").innerHTML = `<p class="muted">Leyendo la hoja…</p>`;
+  try { const buf = await f.arrayBuffer(); const txt = /pdf/i.test(f.type) || /\.pdf$/i.test(f.name) ? await pacPdf(buf) : new TextDecoder().decode(buf); LJ.res = lonjaLeer(txt); lonjaPintar(); }
+  catch(err) { console.warn(err); $("#lonjaRes").innerHTML = `<p style="color:var(--warn)">No he podido leer este PDF. Ábrelo, copia los precios y pégalos arriba.</p>`; }
+});
+document.addEventListener("submit", e => { if (e.target.id === "lonjaFrm") { e.preventDefault(); lonjaGuardar(); } });
+
+/* Aviso en el inicio cuando el precio de un cultivo con cosecha sin vender supera tu coste y la media */
+ALERTS.push(() => {
+  const A = [];
+  for (const c of lonjaCultivos()) {
+    const R = DB.cotizaciones.filter(r => facNorm(r.cultivo) === facNorm(c) && r.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
+    const u = R[R.length - 1]; if (!u || daysBetween(u.fecha, today()) > 14) continue;
+    const kg = lonjaKg(u), sin = lonjaSinVender(c); if (kg == null || !sin) continue;
+    const co = lonjaCoste(c); const ano = R.filter(r => r.unidad === u.unidad && r.fecha >= addDays(u.fecha, -365)).map(r => Number(r.precio));
+    const media = ano.reduce((a, b) => a + b, 0) / ano.length;
+    if (co && kg > co.kg && ano.length > 2 && Number(u.precio) > media) A.push({lv:"", t:`${c}: buen precio en la lonja`, s:`${fnum(u.precio)} ${u.unidad}, por encima de tu coste y de la media del año. Tienes ${fnum(Math.round(sin))} kg sin vender.`, d:"", mod:"ventas", tab:"mercado"});
+  }
+  return A;
+});
+
+SEEDS.push((d, add, D) => {
+  const base = [196, 198, 201, 199, 204, 207, 205, 210];
+  base.forEach((p, i) => add("cotizaciones", {fecha: D(-4 - 7 * (base.length - 1 - i)), lonja:"Albacete", producto:"Cebada pienso >62 kg/hl", cultivo:"Cebada", precio:p, unidad:"€/t"}));
+  [224, 226, 225, 229].forEach((p, i) => add("cotizaciones", {fecha: D(-4 - 7 * (3 - i)), lonja:"Albacete", producto:"Trigo panificable", cultivo:"Trigo", precio:p, unidad:"€/t"}));
+});
 
 /* ============ Control del riego: riegos, agua gastada y dotación de la concesión ============ */
 S.concesiones = {title: "Concesiones de agua", one: "concesión", label: r => r.nombre, help: "La dotación es el agua que te permite gastar tu concesión o comunidad de regantes en un año hidrológico. Asigna cada parcela de regadío a su concesión desde la ficha de la parcela.", fields: [

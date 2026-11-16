@@ -2,7 +2,7 @@
 # Genera dist/ (PWA instalable, librerías locales) y build/artifact.html (vista previa con librerías de cdnjs)
 set -e
 cd "$(dirname "$0")"
-JS="src/js/core.js src/js/inventario.js src/js/costes.js src/js/agenda.js src/js/adjuntos.js src/js/mapa.js src/js/sigpac.js src/js/pac.js src/js/tiempo.js src/js/informes.js src/js/guiado.js src/js/partes.js src/js/taller.js src/js/combustible.js src/js/hoy.js src/js/ventas.js src/js/jornada.js src/js/oficial.js src/js/voz.js src/js/riego.js src/js/abonado.js src/js/seguros.js src/js/ayudas.js src/js/qr.js src/js/voztractor.js src/js/satelite.js src/js/sync.js src/js/zz-boot.js"
+JS="src/js/core.js src/js/inventario.js src/js/costes.js src/js/agenda.js src/js/adjuntos.js src/js/mapa.js src/js/sigpac.js src/js/pac.js src/js/tiempo.js src/js/informes.js src/js/guiado.js src/js/partes.js src/js/taller.js src/js/combustible.js src/js/hoy.js src/js/ventas.js src/js/jornada.js src/js/oficial.js src/js/voz.js src/js/facturas.js src/js/campanas.js src/js/lonja.js src/js/riego.js src/js/abonado.js src/js/seguros.js src/js/ayudas.js src/js/qr.js src/js/voztractor.js src/js/satelite.js src/js/sync.js src/js/zz-boot.js"
 mkdir -p dist/vendor build
 python3 - "$JS" <<'PY'
 import sys, re
@@ -27,6 +27,7 @@ doc = ('<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\n'
 open("dist/index.html","w").write(doc)
 PY
 cp src/vendor/*.js dist/vendor/
+rm -rf dist/vendor/ocr && cp -r src/vendor/ocr dist/vendor/ocr
 cp src/icon.svg src/manifest.webmanifest dist/
 V=$(date +%Y%m%d%H%M)
 sed "s/__VERSION__/$V/" src/sw.js > dist/sw.js
