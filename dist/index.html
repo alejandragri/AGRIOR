@@ -17,7 +17,7 @@
   --bg:#f3f5ef; --surface:#ffffff; --surface-2:#e9ede2; --line:#d5dccb;
   --fg:#1d261c; --muted:#5d6a58;
   --accent:#2f5233; --accent-fg:#ffffff;
-  --agri:#3d6e2f; --gan:#8a4a2b; --api:#b8860b; --eco:#3a5a78; --alm:#6b5a3e; --agenda:#7a4d8a; --guiado:#1f6f78; --partes:#9a5b13; --taller:#5a5f66; --ventas:#2f7a5a;
+  --agri:#3d6e2f; --gan:#8a4a2b; --api:#b8860b; --eco:#3a5a78; --alm:#6b5a3e; --agenda:#7a4d8a; --guiado:#1f6f78; --partes:#9a5b13; --taller:#5a5f66; --ventas:#2f7a5a; --seg:#3f5f8f;
   --ok:#2e7d32; --warn:#b26a00; --crit:#b3261e;
   --warn-bg:#fff4e0; --crit-bg:#fdecea; --ok-bg:#e8f3e8;
   --f-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
@@ -27,13 +27,13 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#141a13; --surface:#1c241b; --surface-2:#253024; --line:#344232;
   --fg:#e6ebe1; --muted:#9daa97; --accent:#8fbf7f; --accent-fg:#10170f;
-  --agri:#8fbf7f; --gan:#d99a78; --api:#e8b94a; --eco:#8db4d6; --alm:#c9b38c; --agenda:#c29ad3; --guiado:#6cc5cf; --partes:#e0a35a; --taller:#b5bcc6; --ventas:#7fd0aa;
+  --agri:#8fbf7f; --gan:#d99a78; --api:#e8b94a; --eco:#8db4d6; --alm:#c9b38c; --agenda:#c29ad3; --guiado:#6cc5cf; --partes:#e0a35a; --taller:#b5bcc6; --ventas:#7fd0aa; --seg:#9db8e6;
   --ok:#7fc683; --warn:#f0b450; --crit:#f2867e;
   --warn-bg:#3a2c12; --crit-bg:#3d1d1a; --ok-bg:#1d3320; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#141a13; --surface:#1c241b; --surface-2:#253024; --line:#344232;
   --fg:#e6ebe1; --muted:#9daa97; --accent:#8fbf7f; --accent-fg:#10170f;
-  --agri:#8fbf7f; --gan:#d99a78; --api:#e8b94a; --eco:#8db4d6; --alm:#c9b38c; --agenda:#c29ad3; --guiado:#6cc5cf; --partes:#e0a35a; --taller:#b5bcc6; --ventas:#7fd0aa;
+  --agri:#8fbf7f; --gan:#d99a78; --api:#e8b94a; --eco:#8db4d6; --alm:#c9b38c; --agenda:#c29ad3; --guiado:#6cc5cf; --partes:#e0a35a; --taller:#b5bcc6; --ventas:#7fd0aa; --seg:#9db8e6;
   --ok:#7fc683; --warn:#f0b450; --crit:#f2867e;
   --warn-bg:#3a2c12; --crit-bg:#3d1d1a; --ok-bg:#1d3320; color-scheme:dark}
 *{box-sizing:border-box}
@@ -259,6 +259,38 @@ ol.traz-line li span{display:block;color:var(--muted, inherit)}
 [hidden]{display:none !important}
 /* Aviso de sin cobertura */
 .netbar{position:fixed;left:0;right:0;top:0;z-index:60;padding:8px 14px;background:var(--warn-bg);color:var(--fg);border-bottom:1px solid var(--line);font-size:.9rem;text-align:center}
+/* Pólizas: parcelas aseguradas */
+.chk-list{display:flex;flex-wrap:wrap;gap:6px 14px;max-height:180px;overflow:auto;padding:6px;border:1px solid var(--line);border-radius:var(--r)}
+.chk-list label{display:flex;gap:6px;align-items:center;font-weight:500;color:var(--fg);font-size:.9rem}
+/* Riego */
+.riego-c{display:flex;flex-direction:column;gap:2px}
+.riego-c .bar .lbl{width:150px}
+/* Plan de abonado */
+.plan-list{display:flex;flex-direction:column;gap:12px}
+.plan-in{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.plan-t td,.plan-t th{white-space:normal}
+.plan-t tbody tr{cursor:default}
+.plan-t tr.falta td{font-weight:600}
+.plan-t tr.aporta td{color:var(--ok)}
+/* Ayudas */
+.ayu-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.ayu{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:6px;box-shadow:inset 0 3px 0 var(--seg)}
+.ayu p{margin:0}
+.ayu .toolbar{margin-top:auto}
+/* QR de trazabilidad */
+.qr-box{width:min(260px,70vw);background:#fff;padding:6px;border-radius:var(--r)}
+.qr-box svg{width:100%;height:auto;display:block}
+.modo-ficha nav.side{display:none}
+.modo-ficha .app{grid-template-columns:1fr}
+.ficha-pub{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.ficha-pub h1{font-size:1.8rem}
+.ficha-pub p{margin:0}
+/* Satélite */
+#satMap{height:min(55vh,460px);min-height:280px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface-2)}
+.sat-g{width:100%;height:auto;display:block}
+.sat-dias{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.sat-dias .btn{flex:none;font-size:.82rem;padding:4px 8px;font-variant-numeric:tabular-nums}
+.sat-ley{display:inline-block;width:80px;height:9px;border-radius:4px;vertical-align:middle;background:linear-gradient(90deg,#a50026,#f46d43,#fee08b,#a6d96a,#1a9850)}
 
 /* required styles */
 
@@ -937,6 +969,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/jspdf.plugin.autotable.min.js"></script>
+<script src="vendor/qrcode.js"></script>
 <script>
 "use strict";
 /* ============ Utilidades ============ */
@@ -3932,7 +3965,7 @@ SETTINGS.push(() => { const f = fiscal(); return `<form class="panel" id="fiscal
 document.addEventListener("submit", e => { if (e.target.id !== "fiscalF") return; e.preventDefault(); DB._meta.fiscal = Object.fromEntries(new FormData(e.target)); DB._meta.titular_u = now(); save(); render(); toast("Datos de facturación guardados"); });
 
 /* ---- PDF de factura ---- */
-function pdfFactura(v){
+async function pdfFactura(v){
   if (!v) return; if (!window.jspdf) return toast("El generador de PDF no está disponible");
   const {jsPDF} = window.jspdf, doc = new jsPDF({unit:"mm", format:"a4"}), T = DB._meta.titular || {}, F = fiscal(), c = DB.clientes.find(x=>x.id===v.cliente) || {}, verde = [47,82,51];
   const reagp = F.regimen === "REAGP", tt = totalesVenta(v);
@@ -3952,6 +3985,10 @@ function pdfFactura(v){
     reagp ? "Operación acogida al Régimen Especial de la Agricultura, Ganadería y Pesca (arts. 124 a 134 de la Ley 37/1992 del IVA). Compensación a tanto alzado." : "",
     v.notas||"", F.pie||""].filter(Boolean);
   doc.text(doc.splitTextToSize(pie.join("\n"), 182), 14, y);
+  // Código QR de trazabilidad de cada lote vendido
+  const lts = [...new Set((v.lineas||[]).map(l=>l.lote).filter(c=>c && lotes().some(x=>x.codigo===c)))].slice(0, 4);
+  if (lts.length && typeof qrEnPdf === "function") { let qy = Math.max(y + 18, 230), qx = 14; if (qy > 250) { doc.addPage(); qy = 20; }
+    for (const c of lts) { qrEnPdf(doc, await urlLote(c), qx, qy, 30); doc.setFontSize(8); doc.setTextColor(60); doc.text([`Lote ${c}`, "Escanea para ver origen", "y tratamientos"], qx + 32, qy + 8); qx += 62; } }
   try { doc.save(`factura-${v.numero||v.fecha}.pdf`); toast("PDF descargado"); } catch(e) { toast("No se pudo descargar el PDF en este navegador"); }
 }
 
@@ -3989,12 +4026,13 @@ TABS.trazabilidad = {title: "Trazabilidad", render(){
       ${F.ventas.length ? F.ventas.map(({v,l})=>`<li class="o"><strong>${fdate(v.fecha)} · Venta</strong><span>${fnum(l.cantidad)} ${esc(l.unidad||"kg")} a ${esc(refName("clientes", v.cliente))} · factura ${esc(v.numero)}</span></li>`).join("") : `<li><strong>Sin ventas</strong><span>Indica este lote en las líneas de la factura.</span></li>`}
     </ol></section></div>`;
 }};
-function pdfTrazabilidad(cod){
+async function pdfTrazabilidad(cod){
   const F = fichaLote(cod); if (!F) return; if (!window.jspdf) return toast("El generador de PDF no está disponible");
   const {jsPDF} = window.jspdf, doc = new jsPDF({unit:"mm", format:"a4"}), T = DB._meta.titular || {}, verde = [47,82,51];
   doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.setTextColor(...verde); doc.text(`Ficha de trazabilidad · Lote ${cod}`, 14, 20);
+  if (typeof qrEnPdf === "function") qrEnPdf(doc, await urlLote(cod), 168, 6, 28);
   doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(60); doc.text([T.nombre, T.nif&&`NIF ${T.nif}`, T.rega_api&&F.l.apiario&&`REGA ${T.rega_api}`].filter(Boolean).join(" · ") || "", 14, 27);
-  doc.autoTable({startY:32, body:[["Producto", F.l.producto], ["Origen", F.l.origen], ["Fecha de cosecha o extracción", fdate(F.l.fecha)], ["Cantidad", `${fnum(F.l.kg)} kg`], ["Vendido", `${fnum(F.l.vendido)} kg`], ["Existencias", `${fnum(F.l.queda)} kg`]], theme:"grid", styles:{fontSize:10}, columnStyles:{0:{fontStyle:"bold", cellWidth:60}}, margin:{left:14, right:14}});
+  doc.autoTable({startY:36, body:[["Producto", F.l.producto], ["Origen", F.l.origen], ["Fecha de cosecha o extracción", fdate(F.l.fecha)], ["Cantidad", `${fnum(F.l.kg)} kg`], ["Vendido", `${fnum(F.l.vendido)} kg`], ["Existencias", `${fnum(F.l.queda)} kg`]], theme:"grid", styles:{fontSize:10}, columnStyles:{0:{fontStyle:"bold", cellWidth:60}}, margin:{left:14, right:14}});
   doc.autoTable({startY:doc.lastAutoTable.finalY+6, head:[["Fecha","Operación","Detalle","Control"]], body:F.E.map(e=>[fdate(e.fecha), e.tipo, e.txt, (e.nota||"") + (e.ok?"":" · REVISAR")]), theme:"grid", styles:{fontSize:8.5}, headStyles:{fillColor:verde}, margin:{left:14, right:14}});
   doc.autoTable({startY:doc.lastAutoTable.finalY+6, head:[["Fecha","Cliente","NIF","Factura","Cantidad"]], body:F.ventas.map(({v,l})=>{const c=DB.clientes.find(x=>x.id===v.cliente)||{};return [fdate(v.fecha), c.nombre||"", c.nif||"", v.numero||"", `${fnum(l.cantidad)} ${l.unidad||""}`];}), theme:"grid", styles:{fontSize:8.5}, headStyles:{fillColor:verde}, margin:{left:14, right:14}});
   try { doc.save(`trazabilidad-${cod}.pdf`); toast("PDF descargado"); } catch(e) { toast("No se pudo descargar el PDF en este navegador"); }
@@ -4300,6 +4338,816 @@ document.addEventListener("click", e => {
 });
 /* Botón «Parte por voz» en la lista de partes */
 { const _vm = viewModulo; viewModulo = mod => { const h = _vm(mod); return mod === "partes" && UI.tab.partes === "partes" ? h.replace('<button class="btn primary" data-new="partes">', '<button class="btn" data-act="voz-parte">🎙 Parte por voz</button><button class="btn primary" data-new="partes">') : h; }; }
+
+/* ============ Control del riego: riegos, agua gastada y dotación de la concesión ============ */
+S.concesiones = {title: "Concesiones de agua", one: "concesión", label: r => r.nombre, help: "La dotación es el agua que te permite gastar tu concesión o comunidad de regantes en un año hidrológico. Asigna cada parcela de regadío a su concesión desde la ficha de la parcela.", fields: [
+  {k:"nombre", l:"Nombre (pozo, toma, comunidad…)", req:1},
+  {k:"organismo", l:"Confederación o comunidad de regantes", t:"sel", o:["C. H. del Guadiana","C. H. del Tajo","C. H. del Júcar","C. H. del Segura","C. H. del Guadalquivir","Comunidad de regantes","Otro"]},
+  {k:"expediente", l:"Nº de expediente o inscripción"},
+  {k:"dotacion", l:"Volumen máximo al año (m³)", t:"num", help:"Si tu concesión lo fija por hectárea, deja esto vacío y rellena el siguiente"},
+  {k:"dotacion_ha", l:"Dotación por hectárea (m³/ha y año)", t:"num"},
+  {k:"inicio", l:"Empieza el año hidrológico", t:"sel", o:["Octubre","Enero"], def:"Octubre"},
+  {k:"aviso", l:"Avisar al llegar al (%)", t:"num", def:80},
+  {k:"precio", l:"Coste del agua o la energía (€/m³)", t:"num", step:"0.001", help:"Opcional, para la rentabilidad"},
+  {k:"notas", l:"Notas", t:"area"}],
+  cols: ["nombre","organismo","expediente",
+    {l:"Dotación", f:r=>{const d=dotacionDe(r);return d?`${fnum(Math.round(d))} m³`:"";}, num:1},
+    {l:"Gastado este año", f:r=>`${fnum(Math.round(gastadoConcesion(r.id)))} m³`, num:1},
+    {l:"Usado", f:r=>{const d=dotacionDe(r);return d?`${fnum(Math.round(gastadoConcesion(r.id)/d*100))} %`:"";}, pill:r=>{const d=dotacionDe(r); if(!d) return ""; const p=gastadoConcesion(r.id)/d*100; return p>=100?"crit":p>=Number(r.aviso||80)?"warn":"ok";}}]};
+S.riegos = {title: "Riegos", one: "riego", label: r => `Riego ${fdate(r.fecha)}`, help: "Apunta cada riego con las horas y el caudal, o con el volumen o las lecturas del contador. La app suma el agua de cada parcela y de cada concesión.", fields: [
+  {k:"fecha", l:"Fecha", t:"date", req:1, def:today}, {k:"parcela", l:"Parcela", t:"ref", ref:"parcelas", req:1},
+  {k:"metodo", l:"Sistema", t:"sel", o:["Goteo","Aspersión","Pívot","Cañón","Inundación","Otro"]},
+  {k:"horas", l:"Horas de riego", t:"num"}, {k:"caudal", l:"Caudal (m³/h)", t:"num"},
+  {k:"lectura_ini", l:"Lectura del contador al empezar (m³)", t:"num"}, {k:"lectura_fin", l:"Lectura del contador al acabar (m³)", t:"num"},
+  {k:"m3", l:"Agua gastada (m³)", t:"num", help:"Si lo dejas vacío se calcula con el contador o con horas × caudal"},
+  {k:"fertirriego", l:"Con abono (fertirrigación)", t:"chk"},
+  {k:"notas", l:"Notas", t:"area"}],
+  cols: ["fecha","parcela","metodo","horas",{l:"Agua (m³)", f:r=>fnum(Math.round(m3Riego(r))), num:1},
+    {l:"Lámina (mm)", f:r=>{const p=DB.parcelas.find(x=>x.id===r.parcela);return p?.superficie?fnum(Math.round(m3Riego(r)/Number(p.superficie)/10*10)/10):"";}, num:1},
+    {l:"Concesión", f:r=>refName("concesiones", DB.parcelas.find(x=>x.id===r.parcela)?.concesion)}]};
+S.parcelas.fields.splice(S.parcelas.fields.findIndex(f=>f.k==="notas"), 0, {k:"concesion", l:"Concesión de agua", t:"ref", ref:"concesiones", help:"Solo si es de regadío"});
+{ const t = MODS.agri.tables, i = t.indexOf("abonados"); t.splice(i + 1, 0, "riegos", "concesiones"); }
+
+function m3Riego(r){
+  if (r.m3 !== "" && r.m3 != null) return Number(r.m3);
+  if (r.lectura_fin !== "" && r.lectura_fin != null && r.lectura_ini !== "" && r.lectura_ini != null) return Math.max(0, Number(r.lectura_fin) - Number(r.lectura_ini));
+  return Number(r.horas||0) * Number(r.caudal||0);
+}
+/* Año hidrológico en curso de una concesión: de octubre a septiembre (o de enero a diciembre) */
+function anoHidro(c, ref = today()){
+  if (c?.inicio === "Enero") { const y = ref.slice(0,4); return [`${y}-01-01`, `${y}-12-31`]; }
+  const y = Number(ref.slice(0,4)), m = Number(ref.slice(5,7)), y0 = m >= 10 ? y : y - 1;
+  return [`${y0}-10-01`, `${y0+1}-09-30`];
+}
+function parcelasConcesion(cid){ return DB.parcelas.filter(p=>p.concesion===cid); }
+function dotacionDe(c){
+  if (c.dotacion !== "" && c.dotacion != null && Number(c.dotacion)) return Number(c.dotacion);
+  if (Number(c.dotacion_ha)) return Number(c.dotacion_ha) * parcelasConcesion(c.id).reduce((s,p)=>s+Number(p.superficie||0),0);
+  return 0;
+}
+function gastadoConcesion(cid, ref){
+  const c = DB.concesiones.find(x=>x.id===cid); if (!c) return 0;
+  const [a, b] = anoHidro(c, ref), ps = new Set(parcelasConcesion(cid).map(p=>p.id));
+  return DB.riegos.filter(r=>ps.has(r.parcela) && r.fecha >= a && r.fecha <= b).reduce((s,r)=>s+m3Riego(r),0);
+}
+/* Al rellenar el formulario: propone el caudal y el sistema del último riego de la parcela y calcula el agua */
+FORM_EXTRA.push({ html: () => "", mount(t, r){
+  if (t !== "riegos") return;
+  const calc = () => { const v = m3Riego({horas:$("#f_horas").value, caudal:$("#f_caudal").value, lectura_ini:$("#f_lectura_ini").value, lectura_fin:$("#f_lectura_fin").value, m3:""});
+    const h = $("#f_m3")?.parentNode.querySelector(".help"); if (h) h.textContent = v ? `Calculado: ${fnum(Math.round(v))} m³ (déjalo vacío para usar este valor)` : "Si lo dejas vacío se calcula con el contador o con horas × caudal"; };
+  $("#f_parcela").addEventListener("change", e => { if (r) return; const u = DB.riegos.filter(x=>x.parcela===e.target.value).sort((a,b)=>b.fecha.localeCompare(a.fecha))[0];
+    if (u) { if (!$("#f_caudal").value && u.caudal) $("#f_caudal").value = u.caudal; if (!$("#f_metodo").value && u.metodo) $("#f_metodo").value = u.metodo; if (!$("#f_lectura_ini").value && u.lectura_fin) $("#f_lectura_ini").value = u.lectura_fin; }
+    const p = DB.parcelas.find(x=>x.id===e.target.value); if (p && p.riego !== "Regadío") toast("Esta parcela figura como secano. Cámbiala a regadío en su ficha."); calc(); });
+  for (const k of ["horas","caudal","lectura_ini","lectura_fin"]) $(`#f_${k}`).addEventListener("input", calc);
+  calc();
+}});
+/* Coste del agua en la rentabilidad de la parcela */
+{ const _p = rentParcelas; rentParcelas = () => _p().map(r => {
+  const p = DB.parcelas.find(x=>x.id===r.id), c = DB.concesiones.find(x=>x.id===p?.concesion);
+  if (!c || !Number(c.precio)) return r;
+  const agua = DB.riegos.filter(x=>x.parcela===r.id && enAno(x)).reduce((s,x)=>s+m3Riego(x),0) * Number(c.precio);
+  if (agua) { r.gas += agua; r.det["Agua de riego"] = agua; } return r; }); }
+
+/* Resumen encima de la lista de riegos */
+{ const _vm = viewModulo; viewModulo = mod => { const h = _vm(mod); if (mod !== "agri" || UI.tab.agri !== "riegos") return h; return h.replace('<div class="head"><div><h2>Riegos</h2>', resumenRiego() + '<div class="head"><div><h2>Riegos</h2>'); }; }
+function resumenRiego(){
+  const C = DB.concesiones; if (!C.length && !DB.riegos.length) return "";
+  const barras = C.map(c => { const d = dotacionDe(c), g = gastadoConcesion(c.id), p = d ? g/d*100 : 0, [a, b] = anoHidro(c);
+    return `<div class="riego-c"><div class="bar"><span class="lbl" title="${esc(c.nombre)}">${esc(c.nombre)}</span><span class="track"><span class="fill" style="width:${Math.min(100,p)}%;display:block;background:${p>=100?"var(--crit)":p>=Number(c.aviso||80)?"var(--warn)":"var(--eco)"}"></span></span><span class="n">${d?fnum(Math.round(p))+" %":"—"}</span></div>
+      <small class="muted">${fnum(Math.round(g))} de ${d?fnum(Math.round(d)):"¿?"} m³ · año hidrológico ${fdate(a)} a ${fdate(b)}${d && p < 100 ? ` · quedan ${fnum(Math.round(d - g))} m³` : ""}${!d?" · falta la dotación":""}</small></div>`; }).join("");
+  const y = today().slice(0,4), P = DB.parcelas.filter(p=>DB.riegos.some(r=>r.parcela===p.id && r.fecha.startsWith(y)));
+  return `<section class="panel"><h3>Agua gastada</h3>${barras || `<p class="muted">Da de alta tu concesión en la pestaña «Concesiones de agua» para ver cuánto te queda.</p>`}
+    ${P.length ? `<div class="table-wrap"><table><thead><tr><th>Parcela ${y}</th><th class="num">Riegos</th><th class="num">m³</th><th class="num">m³/ha</th><th class="num">mm</th></tr></thead><tbody>${P.map(p=>{const R=DB.riegos.filter(r=>r.parcela===p.id&&r.fecha.startsWith(y)), m=R.reduce((s,r)=>s+m3Riego(r),0), ha=Number(p.superficie||0);return `<tr style="cursor:default"><td>${esc(p.nombre)}</td><td class="num">${R.length}</td><td class="num">${fnum(Math.round(m))}</td><td class="num">${ha?fnum(Math.round(m/ha)):"—"}</td><td class="num">${ha?fnum(Math.round(m/ha/10)):"—"}</td></tr>`;}).join("")}</tbody></table></div>` : ""}</section>`;
+}
+ALERTS.push(() => DB.concesiones.flatMap(c => { const d = dotacionDe(c); if (!d) return []; const p = gastadoConcesion(c.id)/d*100;
+  if (p >= 100) return [{lv:"crit", t:`Dotación de agua superada: ${c.nombre}`, s:`Has gastado el ${fnum(Math.round(p))} % del agua de este año hidrológico`, d:"", mod:"agri", tab:"riegos"}];
+  if (p >= Number(c.aviso||80)) return [{lv:"warn", t:`Te acercas a la dotación de ${c.nombre}`, s:`Llevas el ${fnum(Math.round(p))} %: quedan ${fnum(Math.round(d - gastadoConcesion(c.id)))} m³`, d:anoHidro(c)[1], mod:"agri", tab:"riegos"}];
+  return []; }));
+
+SEEDS.push((d, add, D) => {
+  const p = add("parcelas", {nombre:"Huerta del Pozo", municipio:"Villanueva", provincia:"Ejemplo", poligono:5, parcela:41, recinto:1, superficie:2.4, uso:"TA · Tierra arable", riego:"Regadío"});
+  const c = add("concesiones", {nombre:"Pozo de la Huerta", organismo:"C. H. del Guadiana", expediente:"Ejemplo-0001", dotacion_ha:2000, inicio:"Octubre", aviso:80, precio:0.06});
+  d.parcelas.find(x=>x.id===p).concesion = c;
+  add("cultivos", {campana:new Date().getFullYear(), parcela:p, cultivo:"Maíz", variedad:"", superficie:2.4, estado:"En curso"});
+  let lect = 15200; for (let i = 0; i < 6; i++) { const m = 280 + i*15; add("riegos", {fecha:D(-6 - i*9), parcela:p, metodo:"Goteo", horas:8, caudal:Math.round(m/8), lectura_ini:lect, lectura_fin:lect+m}); lect += m; }
+});
+
+/* ============ Plan de abonado: necesidades de N, P y K por parcela según cultivo y cosecha esperada ============ */
+/* Extracciones orientativas en kg por tonelada de cosecha (N, P2O5, K2O), incluyendo paja o restos cuando se retiran.
+   Valores redondeados de la «Guía práctica de la fertilización racional de los cultivos en España» (MAPA). Cada uno puede cambiarlos. */
+const EXTRAC = {
+  "Trigo blando": [28,11,20, 2.5, 6], "Trigo duro": [32,12,20, 2.5, 6], "Cebada": [24,10,22, 2.5, 6], "Avena": [26,11,27, 2, 5],
+  "Centeno": [24,10,25, 1.8, 4], "Triticale": [25,10,22, 2.5, 6], "Maíz": [25,11,24, 0, 12], "Girasol": [45,18,50, 0.9, 2.8], "Colza": [55,25,50, 1.8, 3.5],
+  "Leguminosa (guisante, veza, lenteja, garbanzo)": [0,10,20, 1.2, 3], "Alfalfa (t de heno)": [0,6,25, 4, 12], "Forraje (t de materia seca)": [20,8,25, 4, 10],
+  "Olivar (t de aceituna)": [15,4,20, 2.5, 8], "Viñedo (t de uva)": [7,3,9, 5, 14], "Almendro (t de pepita)": [60,20,60, 0.3, 1.5], "Pistachero (t con cáscara)": [30,8,35, 0.6, 2],
+  "Ajo": [10,4,10, 0, 12], "Cebolla": [3,1.2,4, 0, 60], "Melón": [4,1.5,7, 0, 35], "Patata": [4,1.5,6, 0, 40], "Tomate": [2.5,1,4, 0, 80], "Otro": [0,0,0, 0, 0]
+};
+const LEGUM = /guisante|veza|lenteja|garbanzo|yero|alfalfa|haba|leguminosa|almorta/i;
+S.planabono = {title: "Plan de abonado", one: "plan", label: r => `${refName("parcelas", r.parcela)} ${r.campana}`, fields: [
+  {k:"campana", l:"Campaña", t:"num"}, {k:"parcela", l:"Parcela", t:"ref", ref:"parcelas"}, {k:"cultivo", l:"Cultivo"}, {k:"rend", l:"Cosecha esperada (t/ha)", t:"num"},
+  {k:"nsuelo", l:"N que aporta el suelo (kg/ha)", t:"num"}, {k:"abono", l:"Abono"}, {k:"npk", l:"Riqueza"}, {k:"ext", l:"Extracciones", hide:1}], cols: ["campana","parcela","cultivo","rend"]};
+{ const t = MODS.agri.tables, i = t.indexOf("abonados"); t.splice(i, 0, "plan_abonado"); }
+
+/* Lee una riqueza «8-15-15» o «N 46%» del texto */
+function leerNPK(s){
+  s = String(s||""); let m = s.match(/(\d+(?:[.,]\d+)?)\s*[-–\/]\s*(\d+(?:[.,]\d+)?)\s*[-–\/]\s*(\d+(?:[.,]\d+)?)/);
+  if (m) return [m[1], m[2], m[3]].map(x=>Number(x.replace(",", ".")));
+  if (/urea/i.test(s)) return [46,0,0];
+  m = s.match(/(?:nitr[oó]geno|\bN\b)\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*%/i); if (m) return [Number(m[1].replace(",", ".")), 0, 0];
+  if (/nitrato am[oó]nico c[aá]lcico|\bNAC\b/i.test(s)) return [27,0,0];
+  if (/sulfato am[oó]nico/i.test(s)) return [21,0,0];
+  if (/superfosfato/i.test(s)) return [0,18,0];
+  if (/cloruro pot[aá]sico/i.test(s)) return [0,0,60];
+  return null;
+}
+const npkProducto = p => p ? leerNPK(`${p.nombre} ${p.materia||""}`) : null;
+const campanaAct = () => Number(today().slice(0,4)) + (Number(today().slice(5,7)) >= 10 ? 1 : 0);
+function ventanaCampana(pid, y){
+  const c = DB.cultivos.find(x=>x.parcela===pid && Number(x.campana)===y);
+  let desde = `${y-1}-09-01`; if (c?.siembra && addDays(c.siembra, -45) > desde) desde = addDays(c.siembra, -45);
+  return [desde, `${y}-08-31`];
+}
+/* Nutrientes ya aplicados en la campaña (abonados del cuaderno con riqueza) */
+function aplicado(pid, y){
+  const [a, b] = ventanaCampana(pid, y), o = [0,0,0], sin = [];
+  for (const r of DB.abonados.filter(r=>r.parcela===pid && r.fecha >= a && r.fecha <= b)) {
+    const k = leerNPK(r.riqueza) || leerNPK(r.producto) || npkProducto(DB.productos.find(p=>p.id===r.prod));
+    if (!k) { sin.push(r.producto); continue; }
+    for (let i=0;i<3;i++) o[i] += Number(r.cantidad||0) * k[i] / 100;
+  }
+  return {o, sin};
+}
+function planDe(pid, y){
+  let p = DB.planabono.find(x=>x.parcela===pid && Number(x.campana)===y);
+  if (p) return p;
+  const cu = DB.cultivos.find(x=>x.parcela===pid && Number(x.campana)===y)?.cultivo || cultivoAno(pid, String(y)) || "";
+  const raiz = norm(cu).split(" ")[0].slice(0, 4), k = cu ? (Object.keys(EXTRAC).find(n => norm(n) === norm(cu)) || Object.keys(EXTRAC).find(n => raiz.length >= 3 && norm(n).startsWith(raiz)) || "") : "";
+  const par = DB.parcelas.find(x=>x.id===pid), e = EXTRAC[k];
+  return {parcela:pid, campana:y, cultivo:k, rend: e ? (par?.riego === "Regadío" ? e[4] : e[3]) || e[4] : "", nsuelo:"", abono:"", npk:"", _nuevo:1, _cu:cu};
+}
+function calcPlan(pl){
+  const e = pl.ext || EXTRAC[pl.cultivo] || [0,0,0], r = Number(pl.rend||0);
+  const nec = [e[0]*r, e[1]*r, e[2]*r];
+  // Si el año anterior hubo leguminosa, deja nitrógeno en el suelo
+  const ant = DB.cultivos.find(c=>c.parcela===pl.parcela && Number(c.campana)===pl.campana-1);
+  const credito = ant && LEGUM.test(ant.cultivo) ? 30 : 0;
+  nec[0] = Math.max(0, nec[0] - Number(pl.nsuelo||0) - credito);
+  const ap = aplicado(pl.parcela, pl.campana), falta = nec.map((n,i)=>Math.max(0, n - ap.o[i]));
+  const prod = DB.productos.find(p=>p.id===pl.abono), k = leerNPK(pl.npk) || npkProducto(prod);
+  let dosis = 0;
+  // Un abono con fósforo o potasio (de fondo) se dosifica por ellos; uno solo nitrogenado (cobertera), por el nitrógeno
+  if (k) { const pk = [1,2].filter(i=>k[i] && falta[i] > 1).map(i=>falta[i]/k[i]*100);
+    dosis = pk.length ? Math.max(...pk) : (k[0] && falta[0] ? falta[0] / k[0] * 100 : 0);
+  }
+  dosis = Math.round(dosis/5)*5;
+  const aporta = k ? k.map(x=>dosis*x/100) : [0,0,0], nCob = Math.max(0, falta[0] - aporta[0]);
+  return {nec, ap, falta, k, dosis, aporta, credito, prod, nCob};
+}
+/* Campaña por defecto: la última con cultivos apuntados (sin pasar de la actual) */
+const planYDef = () => Math.max(0, ...DB.cultivos.map(c=>Number(c.campana)).filter(c=>c && c <= campanaAct())) || campanaAct();
+const n0 = v => fnum(Math.round(v));
+TABS.plan_abonado = {title: "Plan de abonado", render(){
+  if (!UI.planY) UI.planY = planYDef();
+  const y = Number(UI.planY), P = DB.parcelas;
+  if (!P.length) return `<div class="empty">Da de alta tus parcelas para calcular el abono que necesitan.</div>`;
+  const abonos = DB.productos.filter(p=>p.tipo==="Abono");
+  return `<div class="toolbar"><label class="muted" for="planY">Campaña</label><select id="planY" style="width:auto">${[campanaAct()+1, campanaAct(), campanaAct()-1].map(c=>`<option ${c===y?"selected":""}>${c}</option>`).join("")}</select>
+    <span class="muted" style="font-size:.88rem">Cuánto nitrógeno (N), fósforo (P₂O₅) y potasio (K₂O) se lleva la cosecha que esperas, menos lo que ya has echado esta campaña. Elige un abono y te dice cuántos kilos por hectárea echar.</span></div>
+  <datalist id="cultivosDL">${Object.keys(EXTRAC).map(k=>`<option value="${esc(k)}">`).join("")}</datalist>
+  <div class="plan-list">${P.map(p => { const pl = planDe(p.id, y), c = calcPlan(pl), ha = Number(p.superficie||0);
+    const fila = (l, v, cls="") => `<tr class="${cls}"><td>${l}</td>${v.map(x=>`<td class="num">${n0(x)}</td>`).join("")}</tr>`;
+    return `<section class="panel plan" data-pid="${p.id}">
+      <div class="head"><div><h3>${esc(p.nombre)}</h3><p>${fnum(ha)} ha · ${esc(p.riego||"")}${pl._cu && !pl.cultivo?` · cultivo apuntado: ${esc(pl._cu)}`:""}</p></div></div>
+      <div class="plan-in">
+        <div class="fld"><label>Cultivo</label><input type="text" list="cultivosDL" data-pf="cultivo" value="${esc(pl.cultivo)}" placeholder="Elige el cultivo"></div>
+        <div class="fld"><label>Cosecha esperada (t/ha)</label><input type="number" step="any" inputmode="decimal" data-pf="rend" value="${esc(pl.rend)}"></div>
+        <div class="fld"><label>N del suelo (kg/ha)</label><input type="number" step="any" inputmode="decimal" data-pf="nsuelo" value="${esc(pl.nsuelo)}" placeholder="Del análisis, si lo tienes"></div>
+        <div class="fld"><label>Abono</label><select data-pf="abono"><option value="">Escribe la riqueza →</option>${abonos.map(a=>`<option value="${a.id}" ${pl.abono===a.id?"selected":""}>${esc(a.nombre)}${npkProducto(a)?"":" (sin riqueza)"}</option>`).join("")}</select></div>
+        <div class="fld"><label>Riqueza N-P-K</label><input type="text" data-pf="npk" value="${esc(pl.npk || (c.k && pl.abono ? c.k.join("-") : ""))}" placeholder="Ej.: 8-15-15 o 46-0-0"></div>
+      </div>
+      ${pl.cultivo && EXTRAC[pl.cultivo] ? `<div class="table-wrap"><table class="plan-t"><thead><tr><th>kg por hectárea</th><th class="num">N</th><th class="num">P₂O₅</th><th class="num">K₂O</th></tr></thead><tbody>
+        ${fila("Necesita la cosecha", c.nec)}${fila("Ya echado esta campaña", c.ap.o)}${fila("<strong>Falta</strong>", c.falta, "falta")}
+        ${c.k && c.dosis ? fila(`Aporta ${n0(c.dosis)} kg/ha del abono`, c.aporta, "aporta") : ""}</tbody></table></div>
+        <div class="toolbar">${c.k && c.dosis ? `<span><strong>${n0(c.dosis)} kg/ha</strong> × ${fnum(ha)} ha = <strong>${n0(c.dosis*ha)} kg</strong> en total${c.prod?` · tienes ${n0(stock(c.prod.id))} ${esc(c.prod.unidad||"")} en el almacén`:""}</span>
+          <button class="btn primary" data-act="plan-apuntar" data-pid="${p.id}">Apuntar en el cuaderno</button>` : c.falta.some(x=>x>1) ? `<span class="muted">Elige un abono o escribe su riqueza para calcular la dosis.</span>` : `<span class="pill ok">Las necesidades de la campaña ya están cubiertas</span>`}</div>
+        ${c.k && c.dosis && c.nCob > 10 ? `<p class="muted" style="font-size:.85rem;margin:0">Después quedarán unos <strong>${n0(c.nCob)} kg de N/ha</strong> para la cobertera (por ejemplo ${n0(Math.round(c.nCob/0.46/5)*5)} kg/ha de urea o ${n0(Math.round(c.nCob/0.27/5)*5)} kg/ha de nitrato amónico cálcico 27 %).</p>`:""}
+        ${c.credito?`<p class="muted" style="font-size:.82rem;margin:0">Se descuentan ${c.credito} kg de N porque el año anterior hubo leguminosa.</p>`:""}
+        ${c.ap.sin.length?`<p class="muted" style="font-size:.82rem;margin:0">No se cuentan ${c.ap.sin.map(esc).join(", ")}: pon su riqueza en el abonado.</p>`:""}
+        ${c.k && c.dosis && c.aporta.some((v,i)=>v > c.falta[i] + 20) ? `<p class="muted" style="font-size:.82rem;margin:0">Con esta dosis sobra algo de ${["N","P₂O₅","K₂O"].filter((_,i)=>c.aporta[i] > c.falta[i] + 20).join(" y ")}. Si el análisis de suelo da niveles altos, puedes usar un abono con menos.</p>`:""}`
+      : `<p class="muted">Elige el cultivo para calcular.</p>`}
+    </section>`; }).join("")}</div>
+  <p class="muted" style="font-size:.82rem">Cálculo orientativo con extracciones medias por tonelada de cosecha. El fósforo y el potasio dependen mucho del suelo: un análisis cada pocos años ajusta mucho mejor. En zonas vulnerables a nitratos respeta los límites de tu programa de actuación.</p>`;
+}};
+function guardarPlan(pid, k, v){
+  const y = Number(UI.planY); let pl = DB.planabono.find(x=>x.parcela===pid && Number(x.campana)===y);
+  if (!pl) { const b = planDe(pid, y); pl = {id:uid(), parcela:pid, campana:y, cultivo:b.cultivo, rend:b.rend, nsuelo:"", abono:"", npk:""}; DB.planabono.push(pl); }
+  pl[k] = (k === "rend" || k === "nsuelo") && v !== "" ? Number(v) : v;
+  if (k === "cultivo" && EXTRAC[v]) { const e = EXTRAC[v], p = DB.parcelas.find(x=>x.id===pid); pl.rend = (p?.riego === "Regadío" ? e[4] : e[3]) || e[4]; }
+  if (k === "abono") { const pr = DB.productos.find(x=>x.id===v), n = npkProducto(pr); pl.npk = n ? n.join("-") : ""; }
+  pl._u = now(); save();
+}
+document.addEventListener("change", e => {
+  if (e.target.id === "planY") { UI.planY = Number(e.target.value); render(); return; }
+  const f = e.target.dataset?.pf; if (!f) return; const pid = e.target.closest("[data-pid]")?.dataset.pid; if (!pid) return;
+  guardarPlan(pid, f, e.target.value.trim()); render();
+});
+document.addEventListener("click", e => {
+  const el = e.target.closest('[data-act="plan-apuntar"]'); if (!el) return;
+  const pid = el.dataset.pid, pl = planDe(pid, Number(UI.planY)), c = calcPlan(pl), p = DB.parcelas.find(x=>x.id===pid);
+  openForm("abonados");
+  const set = (k, v) => { const f = $(`#f_${k}`); if (f && v != null && v !== "") { f.value = v; f.dispatchEvent(new Event("change", {bubbles:true})); } };
+  set("parcela", pid); set("tipo", "Mineral"); set("riqueza", c.k.join("-")); set("cantidad", c.dosis); set("superficie", p?.superficie);
+  if (c.prod) { set("prod", c.prod.id); set("producto", c.prod.nombre); if (/kg/.test(c.prod.unidad||"kg")) set("consumo", Math.round(c.dosis * Number(p?.superficie||0))); }
+  else set("producto", `Abono ${c.k.join("-")}`);
+  set("notas", `Según el plan de abonado de la campaña ${UI.planY}: ${pl.cultivo}, ${fnum(pl.rend)} t/ha esperadas.`);
+  toast("Revisa la fecha y guarda cuando lo eches");
+});
+
+/* ============ Seguro agrario: pólizas y siniestros con fotos y ubicación para el perito ============ */
+S.polizas = {title: "Pólizas", one: "póliza", label: r => `${r.linea||"Póliza"} ${r.numero||""}`.trim(), help: "Guarda tus seguros con sus fechas. Te avisa antes de que acaben las garantías y apunta la prima en Economía.", fields: [
+  {k:"aseguradora", l:"Aseguradora o mediador", req:1}, {k:"numero", l:"Nº de póliza o declaración"},
+  {k:"linea", l:"Línea de seguro", t:"sel", o:["Cultivos herbáceos extensivos","Olivar","Uva de vinificación","Frutos secos","Frutales","Hortalizas","Cultivos forrajeros","Explotaciones de ganado","Retirada de animales muertos","Apicultura","Tractores y maquinaria","Instalaciones","Responsabilidad civil","Otro"], req:1},
+  {k:"modulo", l:"Módulo o garantías", help:"Ejemplo: módulo P, pedrisco e incendio"},
+  {k:"campana", l:"Campaña", t:"num", def:() => new Date().getFullYear()},
+  {k:"alta", l:"Fecha de contratación", t:"date", def:today}, {k:"inicio", l:"Inicio de garantías", t:"date"}, {k:"fin", l:"Fin de garantías", t:"date", req:1},
+  {k:"capital", l:"Capital asegurado (€)", t:"num", step:"0.01"}, {k:"prima", l:"Lo que pagas tú (€)", t:"num", step:"0.01", help:"Ya descontadas las subvenciones de ENESA y de la comunidad"},
+  {k:"subvencion", l:"Subvención descontada (€)", t:"num", step:"0.01"}, {k:"gasto", l:"Apuntar la prima como gasto en Economía", t:"chk", def:true},
+  {k:"telefono", l:"Teléfono para siniestros"}, {k:"notas", l:"Notas", t:"area"}],
+  cols: ["aseguradora","numero","linea","campana",{l:"Fin de garantías", f:r=>fdate(r.fin), pill:r=>!r.fin?"":r.fin<today()?"":daysBetween(today(),r.fin)<=30?"warn":"ok"},
+    {l:"Parcelas", f:r=>(r.parcelas||[]).map(id=>refName("parcelas", id)).filter(Boolean).join(", "), wrap:1},
+    {l:"Prima", f:r=>r.prima?eur.format(r.prima):"", num:1}, {l:"Estado", f:r=>!r.fin?"":r.fin<today()?"Vencida":r.inicio&&r.inicio>today()?"Aún no empieza":"En vigor", pill:r=>!r.fin?"":r.fin<today()?"":r.inicio&&r.inicio>today()?"warn":"ok"}]};
+const RIESGOS = ["Pedrisco","Helada","Sequía","Viento","Lluvia torrencial o inundación","Incendio","Fauna silvestre","Enfermedad o plaga","Muerte o accidente de animales","Otro"];
+S.siniestros = {title: "Siniestros", one: "siniestro", label: r => `${r.riesgo||"Siniestro"} ${fdate(r.fecha)}`, help: "Apunta el daño en cuanto lo veas, con fotos y la ubicación. Normalmente hay 7 días para comunicarlo a la aseguradora: revisa tus condiciones.", fields: [
+  {k:"fecha", l:"Fecha del daño", t:"date", req:1, def:today}, {k:"riesgo", l:"Qué ha pasado", t:"sel", o:RIESGOS, req:1},
+  {k:"poliza", l:"Póliza", t:"ref", ref:"polizas"}, {k:"parcela", l:"Parcela", t:"ref", ref:"parcelas"},
+  {k:"cultivo", l:"Cultivo o animales afectados"}, {k:"dano", l:"Daño estimado (%)", t:"num"}, {k:"sup_afectada", l:"Superficie afectada (ha)", t:"num", step:"0.01"},
+  {k:"estado", l:"Estado", t:"sel", o:["Por comunicar","Comunicado","Peritado","Indemnizado","Rechazado"], def:"Por comunicar"},
+  {k:"comunicado", l:"Fecha en que lo comunicaste", t:"date"}, {k:"ref_siniestro", l:"Nº de siniestro"},
+  {k:"perito", l:"Perito"}, {k:"peritacion", l:"Fecha de peritación", t:"date"},
+  {k:"indemnizacion", l:"Indemnización (€)", t:"num", step:"0.01"}, {k:"fecha_cobro", l:"Fecha de cobro", t:"date"},
+  {k:"descripcion", l:"Descripción del daño", t:"area"},
+  {k:"lat", l:"Latitud", hide:1}, {k:"lng", l:"Longitud", hide:1}],
+  cols: ["fecha","riesgo","parcela","poliza",{l:"Daño", f:r=>r.dano!==""&&r.dano!=null?`${fnum(r.dano)} %`:"", num:1},
+    {l:"Comunicar antes de", f:r=>r.estado==="Por comunicar"?fdate(addDays(r.fecha,7)):"", pill:r=>r.estado!=="Por comunicar"?"":addDays(r.fecha,7)<today()?"crit":"warn"},
+    {l:"Estado", f:r=>r.estado, pill:r=>({"Por comunicar":"crit", Comunicado:"warn", Peritado:"warn", Indemnizado:"ok", Rechazado:""})[r.estado]||""},
+    {l:"Indemnización", f:r=>r.indemnizacion?eur.format(r.indemnizacion):"", num:1}]};
+CON_ADJ.push("polizas","siniestros");
+
+/* Módulo propio «Seguros y ayudas», detrás de Ventas */
+(() => { const e = Object.entries(MODS); for (const [k] of e) delete MODS[k];
+  for (const [k, v] of e) { MODS[k] = v; if (k === "ventas") MODS.seg = {name:"Seguros", color:"var(--seg)", desc:"Seguros, siniestros y ayudas", tables:["polizas","siniestros"]}; } })();
+ICONS.seg = '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>';
+
+/* Punto dentro de un polígono [[lat,lng],...] */
+function dentroDe(pt, poly){
+  let c = false; for (let i=0, j=poly.length-1; i<poly.length; j=i++) { const [yi, xi] = poly[i], [yj, xj] = poly[j];
+    if (((yi > pt[0]) !== (yj > pt[0])) && (pt[1] < (xj - xi) * (pt[0] - yi) / (yj - yi) + xi)) c = !c; }
+  return c;
+}
+const distM = (a, b) => { const R = 6371000, r = Math.PI/180, dLa = (b[0]-a[0])*r, dLo = (b[1]-a[1])*r; const h = Math.sin(dLa/2)**2 + Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(h)); };
+/* Parcela en la que está un punto; si no cae dentro de ninguna, la más cercana a menos de 300 m */
+function parcelaEn(lat, lng){
+  const P = DB.parcelas.filter(p=>p.geo?.length > 2), pt = [lat, lng];
+  const d = P.find(p=>dentroDe(pt, p.geo)); if (d) return {p:d, dentro:true};
+  let best = null, bd = 300; for (const p of P) { const m = Math.min(...p.geo.map(q=>distM(pt, q))); if (m < bd) { bd = m; best = p; } }
+  return best ? {p:best, dentro:false, m:Math.round(bd)} : null;
+}
+function miPosicion(){ return new Promise((res, rej) => { if (!navigator.geolocation) return rej(new Error("sin GPS")); navigator.geolocation.getCurrentPosition(p => res([p.coords.latitude, p.coords.longitude, p.coords.accuracy]), rej, {enableHighAccuracy:true, timeout:15000, maximumAge:30000}); }); }
+
+/* Formulario de póliza: parcelas aseguradas. Formulario de siniestro: ubicación por GPS */
+FORM_EXTRA.push({
+  html(t, r){
+    if (t === "polizas") return `<div class="fld full"><label>Parcelas aseguradas</label><div class="chk-list">${DB.parcelas.map(p=>`<label><input type="checkbox" name="pol_parc" value="${p.id}" ${(r?.parcelas||[]).includes(p.id)?"checked":""}> ${esc(p.nombre)} <small class="muted">${fnum(p.superficie)} ha</small></label>`).join("") || `<span class="muted">Sin parcelas</span>`}</div></div>`;
+    if (t === "siniestros") return `<div class="fld full"><label>Ubicación</label><div class="toolbar"><button type="button" class="btn" data-act="sin-gps">📍 Usar mi posición</button><span id="sinPos" class="muted">${r?.lat?`${Number(r.lat).toFixed(5)}, ${Number(r.lng).toFixed(5)}`:"Sin ubicación"}</span>${r?.lat?`<a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${r.lat},${r.lng}">Ver en el mapa</a>`:""}</div>
+      <input type="hidden" id="sinLat" value="${esc(r?.lat??"")}"><input type="hidden" id="sinLng" value="${esc(r?.lng??"")}"></div>
+      ${r?`<div class="fld full"><div class="toolbar"><button type="button" class="btn" data-act="sin-pdf" data-id="${r.id}">Informe para el perito (PDF)</button></div></div>`:""}`;
+    return "";
+  },
+  mount(t, r){
+    if (t === "siniestros") {
+      $("#f_estado").addEventListener("change", e => { if (e.target.value !== "Por comunicar" && !$("#f_comunicado").value) $("#f_comunicado").value = today(); });
+      $("#f_parcela").addEventListener("change", e => { if ($("#f_poliza").value) return; const pol = DB.polizas.find(p=>(p.parcelas||[]).includes(e.target.value) && (!p.fin || p.fin >= $("#f_fecha").value)); if (pol) $("#f_poliza").value = pol.id;
+        const c = DB.cultivos.filter(c=>c.parcela===e.target.value).sort((a,b)=>Number(b.campana)-Number(a.campana))[0]; if (c && !$("#f_cultivo").value) $("#f_cultivo").value = c.cultivo; });
+    }
+  },
+  collect(t, rec){
+    if (t === "polizas") {
+      rec.parcelas = [...document.querySelectorAll('input[name="pol_parc"]:checked')].map(x=>x.value);
+      vincularEco(rec, "poliza", rec.gasto && rec.prima ? {fecha:rec.alta||today(), tipo:"Gasto", modulo:"General", categoria:"Seguros", concepto:`Seguro ${rec.linea||""} ${rec.numero||""} (${rec.aseguradora})`.replace(/\s+/g," "), importe:Number(rec.prima)} : null);
+    }
+    if (t === "siniestros") {
+      rec.lat = $("#sinLat")?.value || ""; rec.lng = $("#sinLng")?.value || "";
+      const p = DB.parcelas.find(x=>x.id===rec.parcela);
+      vincularEco(rec, "siniestro", rec.estado === "Indemnizado" && rec.indemnizacion ? {fecha:rec.fecha_cobro||today(), tipo:"Ingreso", modulo:"Agrícola", categoria:"Otros", concepto:`Indemnización del seguro: ${rec.riesgo}${p?" en "+p.nombre:""}`, importe:Number(rec.indemnizacion), parcela:rec.parcela||""} : null);
+    }
+  },
+  remove(t, rec){ if (rec && (t === "polizas" || t === "siniestros")) vincularEco(rec, t === "polizas" ? "poliza" : "siniestro", null); }
+});
+/* Crea, cambia o quita el apunte de Economía ligado a un registro */
+function vincularEco(rec, campo, datos){
+  const ex = DB.economia.find(e=>e[campo]===rec.id);
+  if (datos) { const e = {...(ex||{id:uid()}), ...datos, [campo]:rec.id, _u:now()}; if (ex) DB.economia = DB.economia.map(x=>x.id===ex.id?e:x); else DB.economia.push(e); }
+  else if (ex) { DB.economia = DB.economia.filter(x=>x!==ex); tomb(ex.id); }
+}
+document.addEventListener("click", async e => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  if (el.dataset.act === "sin-gps") {
+    $("#sinPos").textContent = "Buscando posición…";
+    try { const [la, lo, acc] = await miPosicion(); $("#sinLat").value = la.toFixed(6); $("#sinLng").value = lo.toFixed(6);
+      const q = parcelaEn(la, lo); $("#sinPos").textContent = `${la.toFixed(5)}, ${lo.toFixed(5)} (±${Math.round(acc)} m)${q?` · ${q.dentro?"dentro de":"cerca de"} ${q.p.nombre}`:""}`;
+      if (q && !$("#f_parcela").value) { $("#f_parcela").value = q.p.id; $("#f_parcela").dispatchEvent(new Event("change")); }
+    } catch(err) { $("#sinPos").textContent = "No se pudo obtener la posición. Activa la ubicación."; }
+  }
+  if (el.dataset.act === "sin-pdf") pdfSiniestro(DB.siniestros.find(x=>x.id===el.dataset.id));
+});
+async function pdfSiniestro(s){
+  if (!s) return; if (!window.jspdf) return toast("El generador de PDF no está disponible");
+  const {jsPDF} = window.jspdf, doc = new jsPDF({unit:"mm", format:"a4"}), T = DB._meta.titular || {}, verde = [47,82,51];
+  const p = DB.parcelas.find(x=>x.id===s.parcela), pol = DB.polizas.find(x=>x.id===s.poliza);
+  doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.setTextColor(...verde); doc.text("Declaración de daños", 14, 20);
+  doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(60); doc.text([T.nombre, T.nif&&`NIF ${T.nif}`].filter(Boolean).join(" · ") || "", 14, 27);
+  doc.autoTable({startY:32, body:[
+    ["Fecha del daño", fdate(s.fecha)], ["Riesgo", s.riesgo||""], ["Póliza", pol?`${pol.aseguradora} · ${pol.linea||""} · Nº ${pol.numero||"—"}`:"—"],
+    ["Parcela", p?`${p.nombre} · ${p.municipio||""} · SIGPAC ${[p.provincia,p.poligono,p.parcela,p.recinto].filter(x=>x!==""&&x!=null).join("/")} · ${fnum(p.superficie)} ha`:"—"],
+    ["Cultivo", s.cultivo||""], ["Daño estimado", s.dano!==""&&s.dano!=null?`${fnum(s.dano)} %`:""], ["Superficie afectada", s.sup_afectada?`${fnum(s.sup_afectada)} ha`:""],
+    ["Ubicación", s.lat?`${s.lat}, ${s.lng}  (https://www.google.com/maps?q=${s.lat},${s.lng})`:"—"], ["Nº de siniestro", s.ref_siniestro||""], ["Comunicado el", fdate(s.comunicado)],
+    ["Descripción", s.descripcion||""]], theme:"grid", styles:{fontSize:10}, columnStyles:{0:{fontStyle:"bold", cellWidth:48}}, margin:{left:14, right:14}});
+  let y = doc.lastAutoTable.finalY + 6, x = 14;
+  for (const id of s._adj||[]) { let f = null; try { f = await idbGet("files", id); } catch(e) {} if (!f || f.kind !== "image") continue;
+    const url = await blobToDataURL(f.blob), img = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = url; }); if (!img) continue;
+    const w = 88, h = w * img.height / img.width; if (y + h > 285) { if (x === 14) { doc.addPage(); y = 16; } else { x = 14; doc.addPage(); y = 16; } }
+    doc.addImage(url, "JPEG", x, y, w, Math.min(h, 120)); if (x === 14) x = 108; else { x = 14; y += Math.min(h,120) + 4; } }
+  try { doc.save(`siniestro-${s.fecha}.pdf`); toast("PDF descargado"); } catch(e) { toast("No se pudo descargar el PDF en este navegador"); }
+}
+ALERTS.push(() => {
+  const A = [], h = today();
+  for (const s of DB.siniestros) if (s.estado === "Por comunicar") { const lim = addDays(s.fecha, 7); A.push({lv: lim < h ? "crit" : "warn", t:`Comunica el siniestro: ${s.riesgo}`, s:`${refName("parcelas", s.parcela) || "Sin parcela"} · ${lim < h ? "el plazo habitual de 7 días ya ha pasado" : "plazo habitual de 7 días"}`, d:lim, mod:"seg", tab:"siniestros"}); }
+  for (const p of DB.polizas) if (p.fin && p.fin >= h && daysBetween(h, p.fin) <= 30) A.push({lv:"warn", t:`Acaba el seguro de ${p.linea||"la póliza"} ${p.numero||""}`, s:`${p.aseguradora} · revisa si tienes que renovarlo`, d:p.fin, mod:"seg", tab:"polizas"});
+  // Parcelas con cultivo este año que no están en ninguna póliza en vigor
+  const y = Number(h.slice(0,4)), aseg = new Set(DB.polizas.filter(p=>!p.fin || p.fin >= h).flatMap(p=>p.parcelas||[]));
+  if (DB.polizas.length) { const sin = DB.cultivos.filter(c=>Number(c.campana)===y && c.estado==="En curso" && !aseg.has(c.parcela)); if (sin.length) A.push({lv:"", t:`${sin.length} cultivo${sin.length>1?"s":""} sin seguro en vigor`, s:sin.slice(0,3).map(c=>`${c.cultivo} (${refName("parcelas", c.parcela)})`).join(", "), d:"", mod:"seg", tab:"polizas"}); }
+  return A;
+});
+SEEDS.push((d, add, D, ids) => {
+  const pol = add("polizas", {aseguradora:"Agroseguro · mediador (ejemplo)", numero:"0000001", linea:"Cultivos herbáceos extensivos", modulo:"Módulo P", campana:new Date().getFullYear(), alta:D(-40), inicio:D(-35), fin:D(20), capital:9500, prima:310, subvencion:190, gasto:true, telefono:"900 000 000"});
+  d.polizas.find(x=>x.id===pol).parcelas = [ids.p1];
+  add("economia", {fecha:D(-40), tipo:"Gasto", modulo:"General", categoria:"Seguros", concepto:"Seguro Cultivos herbáceos extensivos 0000001", importe:310, poliza:pol});
+  add("siniestros", {fecha:D(-2), riesgo:"Pedrisco", poliza:pol, parcela:ids.p1, cultivo:"Cebada", dano:15, sup_afectada:2, estado:"Por comunicar", descripcion:"Granizo fuerte por la tarde; hojas rotas en la zona baja de la parcela."});
+});
+
+/* ============ Ayudas y subvenciones: las que encajan con tu explotación, búsqueda en la BDNS y tus solicitudes ============ */
+S.solicitudes = {title: "Mis solicitudes", one: "solicitud", label: r => r.ayuda, help: "Lleva el control de las ayudas que pides: plazos, requerimientos, justificación y cobro.", fields: [
+  {k:"ayuda", l:"Ayuda", req:1}, {k:"organismo", l:"Organismo", def:"Junta de Comunidades de Castilla-La Mancha"},
+  {k:"convocatoria", l:"Nº BDNS o enlace a la convocatoria"},
+  {k:"fin_plazo", l:"Fin del plazo de solicitud", t:"date"}, {k:"presentada", l:"Fecha en que la presentaste", t:"date"},
+  {k:"importe", l:"Importe solicitado (€)", t:"num", step:"0.01"},
+  {k:"estado", l:"Estado", t:"sel", o:["Preparando","Presentada","Requerimiento","Concedida","Denegada","Cobrada"], def:"Preparando"},
+  {k:"concedido", l:"Importe concedido (€)", t:"num", step:"0.01"}, {k:"justificar", l:"Fecha límite para justificar o ejecutar", t:"date"},
+  {k:"fecha_cobro", l:"Fecha de cobro", t:"date"}, {k:"notas", l:"Notas y documentos que piden", t:"area"}],
+  cols: ["ayuda","organismo",{l:"Fin de plazo", f:r=>fdate(r.fin_plazo), pill:r=>!r.fin_plazo||r.estado!=="Preparando"?"":r.fin_plazo<today()?"crit":daysBetween(today(),r.fin_plazo)<=15?"warn":""},
+    {l:"Solicitado", f:r=>r.importe?eur.format(r.importe):"", num:1},{l:"Concedido", f:r=>r.concedido?eur.format(r.concedido):"", num:1},
+    {l:"Justificar antes de", f:r=>fdate(r.justificar), pill:r=>!r.justificar||r.estado==="Cobrada"?"":r.justificar<today()?"crit":daysBetween(today(),r.justificar)<=30?"warn":""},
+    {l:"Estado", f:r=>r.estado, pill:r=>({Cobrada:"ok", Concedida:"ok", Requerimiento:"crit", Denegada:"", Presentada:"warn", Preparando:"warn"})[r.estado]||""}]};
+MODS.seg.tables.push("ayudas", "solicitudes"); MODS.seg.name = "Seguros y ayudas";
+CON_ADJ.push("solicitudes");
+FORM_EXTRA.push({ html:()=>"", collect(t, rec){ if (t !== "solicitudes") return;
+  vincularEco(rec, "solicitud", rec.estado === "Cobrada" && (rec.concedido || rec.importe) ? {fecha:rec.fecha_cobro||today(), tipo:"Ingreso", modulo:"General", categoria:"Subvenciones (PAC)", concepto:`Ayuda: ${rec.ayuda}`, importe:Number(rec.concedido||rec.importe)} : null); },
+  remove(t, rec){ if (t === "solicitudes" && rec) vincularEco(rec, "solicitud", null); } });
+ALERTS.push(() => DB.solicitudes.flatMap(r => {
+  const A = [], h = today();
+  if (r.estado === "Preparando" && r.fin_plazo && r.fin_plazo >= h && daysBetween(h, r.fin_plazo) <= 15) A.push({lv:"warn", t:`Presenta la solicitud: ${r.ayuda}`, s:`El plazo acaba en ${daysBetween(h, r.fin_plazo)} días`, d:r.fin_plazo, mod:"seg", tab:"solicitudes"});
+  if (r.estado === "Requerimiento") A.push({lv:"crit", t:`Responde al requerimiento: ${r.ayuda}`, s:"Suelen dar 10 días hábiles", d:"", mod:"seg", tab:"solicitudes"});
+  if (r.estado === "Concedida" && r.justificar && daysBetween(h, r.justificar) <= 30) A.push({lv: r.justificar < h ? "crit" : "warn", t:`Justifica la ayuda: ${r.ayuda}`, s:"Facturas, pagos y lo que pida la resolución", d:r.justificar, mod:"seg", tab:"solicitudes"});
+  return A; }));
+
+/* Perfil de la explotación sacado de los datos */
+function perfilExpl(){
+  const usos = new Set(DB.parcelas.map(p=>(p.uso||"").slice(0,2))), y = String(new Date().getFullYear());
+  const cult = DB.cultivos.filter(c=>String(c.campana)===y).map(c=>norm(c.cultivo)).join(" ");
+  return {ha: DB.parcelas.reduce((s,p)=>s+Number(p.superficie||0),0), regadio: DB.parcelas.some(p=>p.riego==="Regadío") || DB.concesiones.length > 0,
+    vina: usos.has("VI") || /vin|uva/.test(cult), olivar: usos.has("OV") || /olivo|olivar/.test(cult), lenosos: usos.has("FS") || /almend|pistach|nogal/.test(cult),
+    ganado: DB.animales.some(a=>a.estado!=="Baja"), colmenas: DB.colmenas.filter(c=>c.estado!=="Muerta"&&c.estado!=="Vendida").length,
+    maquinas: DB.maquinaria.length, viejas: DB.maquinaria.filter(m=>/tractor|pulveriz|abonadora/i.test(m.tipo||"")).length, seguros: DB.polizas.length, eco: /ecol/i.test(JSON.stringify(DB._meta.titular||{}))};
+}
+/* Líneas de ayuda que se convocan con regularidad. Las fechas y requisitos cambian cada año: siempre se enlaza a la búsqueda oficial. */
+const AYUDAS = [
+  {id:"mejora", t:"Planes de mejora de explotaciones", q:"inversiones explotaciones agrarias planes de mejora", que:"Inversiones en la explotación: maquinaria, naves, riego eficiente, plantaciones, energía solar…", quien:"Agricultores profesionales o explotaciones prioritarias.", ok:p=>p.ha>0||p.ganado, por:p=>"Tienes una explotación en activo"},
+  {id:"jovenes", t:"Primera instalación de jóvenes agricultores", q:"primera instalación jóvenes agricultores", que:"Prima por instalarse por primera vez como titular, a menudo junto con un plan de mejora.", quien:"Menores de 41 años que se instalan por primera vez.", ok:()=>true, por:()=>"Si tienes menos de 41 años y te instalas ahora"},
+  {id:"renove", t:"Renovación de maquinaria agrícola (Plan Renove)", q:"renovación maquinaria agrícola", que:"Ayuda por achatarrar un tractor, pulverizador o abonadora viejos y comprar uno nuevo más eficiente.", quien:"Titulares de explotación con maquinaria inscrita en el ROMA.", ok:p=>p.viejas>0, por:p=>`Tienes ${p.viejas} tractor${p.viejas>1?"es":""} o equipo${p.viejas>1?"s":""} de tratamiento o abonado`},
+  {id:"seguros", t:"Subvención a los seguros agrarios", q:"seguros agrarios subvención", que:"El Ministerio (ENESA) y la comunidad pagan parte de la prima. Se aplica al contratar la póliza.", quien:"Quien contrata un seguro del Plan de Seguros Agrarios.", ok:()=>true, por:p=>p.seguros?"Tienes pólizas apuntadas: comprueba que te han descontado la subvención":"Ningún cultivo tiene seguro apuntado"},
+  {id:"riego", t:"Modernización y eficiencia del regadío", q:"modernización regadío eficiencia riego", que:"Cambio a goteo, contadores, telecontrol, balsas o bombeo solar.", quien:"Regantes y comunidades de regantes.", ok:p=>p.regadio, por:()=>"Tienes parcelas de regadío"},
+  {id:"vina", t:"Reestructuración y reconversión del viñedo", q:"reestructuración reconversión viñedo", que:"Arranque y replantación, cambio de variedad, espaldera y riego en el viñedo.", quien:"Viticultores con plantación inscrita en el registro vitícola.", ok:p=>p.vina, por:()=>"Tienes viñedo"},
+  {id:"lenosos", t:"Leñosos y frutos secos", q:"frutos secos almendro pistacho olivar ayuda", que:"Líneas para olivar tradicional, almendro, pistachero y otros leñosos (ecorregímenes, ayudas asociadas, plantaciones).", quien:"Titulares de leñosos.", ok:p=>p.olivar||p.lenosos, por:()=>"Tienes olivar o frutos secos"},
+  {id:"agroamb", t:"Agroambiente, clima y agricultura ecológica", q:"agroambiente clima agricultura ecológica", que:"Pagos por hectárea por compromisos ambientales de varios años o por producir en ecológico.", quien:"Quien se compromete durante 5 años.", ok:p=>p.ha>0, por:p=>`Tienes ${fnum(p.ha)} ha`},
+  {id:"apicola", t:"Ayudas al sector apícola", q:"apicultura apícola ayudas colmenas", que:"Lucha contra la varroa, trashumancia, mejora de la producción y comercialización de miel.", quien:"Apicultores con explotación registrada en el REGA.", ok:p=>p.colmenas>0, por:p=>`Tienes ${p.colmenas} colmenas`},
+  {id:"ganado", t:"Ganadería: sanidad, bienestar y razas autóctonas", q:"ganadería sanidad animal razas autóctonas bienestar", que:"Agrupaciones de defensa sanitaria, bienestar animal, razas autóctonas y retirada de cadáveres.", quien:"Ganaderos con explotación en el REGA.", ok:p=>p.ganado, por:()=>"Tienes ganado"},
+  {id:"adversas", t:"Daños por heladas, granizo o sequía", q:"daños adversidades climáticas agricultores", que:"Cuando hay daños graves, a veces se aprueban ayudas extraordinarias o préstamos bonificados.", quien:"Afectados de las zonas declaradas. Suele exigirse tener seguro.", ok:p=>DB.siniestros.length>0, por:()=>"Tienes siniestros apuntados"},
+];
+const BDNS_API = "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/busqueda";
+const BDNS_WEB = "https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias";
+const AYU_KEY = "mi-explotacion-ayudas";
+let ayuCache = {}; try { ayuCache = JSON.parse(localStorage.getItem(AYU_KEY) || "{}"); } catch(e) {}
+const ayuSave = () => { try { localStorage.setItem(AYU_KEY, JSON.stringify(ayuCache)); } catch(e) {} };
+/* Busca convocatorias en la Base de Datos Nacional de Subvenciones (pública, sin clave) */
+async function buscarBDNS(q){
+  const u = `${BDNS_API}?vpd=GE&page=0&pageSize=40&order=numeroConvocatoria&direccion=desc&descripcion=${encodeURIComponent(q)}&descripcionTipoBusqueda=1`;
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 12000);
+  try { const r = await fetch(u, {signal:ctl.signal, headers:{Accept:"application/json"}}); if (!r.ok) throw new Error(`error ${r.status}`); const j = await r.json();
+    const L = (j.content || j.convocatorias || j || []).map(c => ({n:String(c.numeroConvocatoria ?? c.codigoBDNS ?? c.id ?? ""), t:c.descripcion || c.titulo || "", f:(c.fechaRecepcion || c.fechaRegistro || "").slice(0,10), o:[c.nivel1, c.nivel2, c.nivel3].filter(Boolean).join(" · ")}));
+    // Se quedan las estatales y las de Castilla-La Mancha (y sus provincias y municipios)
+    return L.filter(c => c.t && (/castilla.?la mancha|albacete|ciudad real|cuenca|guadalajara|toledo/i.test(c.o) || /^estado/i.test(c.o)));
+  } finally { clearTimeout(to); }
+}
+UI.ayuQ = UI.ayuQ || "";
+let ayuRes = null, ayuMsg = "";
+TABS.ayudas = {title: "Ayudas para ti", render(){
+  const p = perfilExpl(), enc = AYUDAS.filter(a=>a.ok(p)), resto = AYUDAS.filter(a=>!a.ok(p)), vig = DB._meta.ayudasVigilar || [], nuevas = ayuCache.nuevas || [];
+  const tarjeta = a => `<article class="ayu"><h3>${esc(a.t)}</h3><p>${esc(a.que)}</p><p class="muted" style="font-size:.85rem">Para: ${esc(a.quien)}${a.ok(p)?`<br><strong style="color:var(--ok)">✓ ${esc(a.por(p))}</strong>`:""}</p>
+    <div class="toolbar"><button class="btn" data-act="ayu-buscar" data-q="${esc(a.q)}">Ver convocatorias</button><button class="btn" data-act="ayu-vigilar" data-q="${esc(a.q)}">${vig.includes(a.q)?"✓ Avisándote":"🔔 Avisarme"}</button><button class="btn" data-act="ayu-solicitud" data-t="${esc(a.t)}">+ Mis solicitudes</button></div></article>`;
+  return `${nuevas.length ? `<section class="panel"><h3>Convocatorias nuevas desde la última vez</h3><ul class="alerts">${nuevas.slice(0,8).map(c=>`<li class="warn"><div><strong>${esc(c.t)}</strong><small>${esc(c.o)} · ${fdate(c.f)}</small></div><span class="when"><a class="btn" target="_blank" rel="noopener" href="${BDNS_WEB}/${encodeURIComponent(c.n)}">Abrir</a></span></li>`).join("")}</ul><div><button class="btn" data-act="ayu-vistas">Marcar como vistas</button></div></section>` : ""}
+  <section class="panel"><h3>Buscar convocatorias</h3>
+    <div class="toolbar"><input class="grow" type="search" id="ayuQ" placeholder="Ejemplo: maquinaria, regadío, jóvenes, apicultura…" value="${esc(UI.ayuQ)}"><button class="btn primary" data-act="ayu-buscar">Buscar</button><a class="btn" href="${BDNS_WEB}" target="_blank" rel="noopener">Abrir la BDNS</a></div>
+    <div id="ayuRes">${ayuMsg ? `<p class="muted">${ayuMsg}</p>` : ayuRes ? (ayuRes.length ? `<ul class="alerts">${ayuRes.map(c=>`<li><div><strong>${esc(c.t)}</strong><small>${esc(c.o)}${c.f?` · registrada el ${fdate(c.f)}`:""} · nº ${esc(c.n)}</small></div><span class="when"><a class="btn" target="_blank" rel="noopener" href="${BDNS_WEB}/${encodeURIComponent(c.n)}">Abrir</a></span></li>`).join("")}</ul>` : `<p class="muted">No hay convocatorias estatales ni de Castilla-La Mancha con esas palabras.</p>`) : `<p class="muted">Busca en la Base de Datos Nacional de Subvenciones, donde se publican todas las convocatorias. Se muestran las del Estado y las de Castilla-La Mancha.</p>`}</div>
+    ${vig.length?`<p class="muted" style="font-size:.85rem;margin:0">Te aviso cuando salga algo nuevo de: ${vig.map(v=>`<span class="pill">${esc(v)} <button class="x" style="font-size:.9rem" data-act="ayu-novigilar" data-q="${esc(v)}" aria-label="Dejar de vigilar">×</button></span>`).join(" ")}${ayuCache.t?` · revisado ${new Date(ayuCache.t).toLocaleDateString("es-ES")}`:""}</p>`:""}
+  </section>
+  <h2>Encajan con tu explotación</h2>
+  <div class="ayu-grid">${enc.map(tarjeta).join("") || `<p class="muted">Completa tus parcelas, ganado o colmenas para ver sugerencias.</p>`}</div>
+  ${resto.length?`<details><summary class="muted" style="cursor:pointer">Otras líneas (${resto.length})</summary><div class="ayu-grid" style="margin-top:10px">${resto.map(tarjeta).join("")}</div></details>`:""}
+  <p class="muted" style="font-size:.82rem">Las sugerencias se basan en lo que tienes apuntado en la app; los requisitos, importes y plazos cambian en cada convocatoria. Confírmalos en la convocatoria oficial o con tu oficina comarcal agraria.</p>`;
+}};
+async function lanzarBusqueda(q){
+  UI.ayuQ = q; ayuRes = null; ayuMsg = "Buscando…"; render();
+  try { ayuRes = await buscarBDNS(q); ayuMsg = ""; }
+  catch(e) { ayuMsg = `No se ha podido consultar la BDNS desde la app (${navigator.onLine ? "el servicio no responde o no permite consultas desde aplicaciones web" : "sin conexión"}). <a href="${BDNS_WEB}" target="_blank" rel="noopener">Ábrela en el navegador</a> y busca «${esc(q)}».`; }
+  if (UI.mod === "seg") render();
+}
+/* Revisa una vez al día las búsquedas vigiladas y guarda las convocatorias nuevas */
+async function vigilarAyudas(){
+  const vig = DB._meta.ayudasVigilar || []; if (!vig.length || !navigator.onLine) return;
+  if (ayuCache.t && Date.now() - ayuCache.t < 20*3600e3) return;
+  const vistas = new Set(ayuCache.vistas || []), nuevas = ayuCache.nuevas || [], antes = nuevas.length, qs = new Set(ayuCache.qs || []);
+  // La primera vez que se vigila una búsqueda, lo que ya existe se da por visto
+  for (const q of vig) { const primera = !qs.has(q); try { for (const c of await buscarBDNS(q)) if (c.n && !vistas.has(c.n)) { vistas.add(c.n); if (!primera) nuevas.unshift(c); } qs.add(q); } catch(e) { return; } }
+  ayuCache = {t:Date.now(), vistas:[...vistas].slice(-2000), nuevas:nuevas.slice(0,30), qs:[...qs]}; ayuSave();
+  if (nuevas.length > antes) { try { notificar("Nuevas ayudas", `${nuevas.length} convocatoria${nuevas.length>1?"s":""} que vigilas`, "ayudas"); } catch(e) {} if (UI.mod === "inicio") render(); }
+}
+ALERTS.push(() => (ayuCache.nuevas||[]).length ? [{lv:"warn", t:`${ayuCache.nuevas.length} convocatoria${ayuCache.nuevas.length>1?"s":""} de ayudas nueva${ayuCache.nuevas.length>1?"s":""}`, s:ayuCache.nuevas[0].t.slice(0,90), d:"", mod:"seg", tab:"ayudas"}] : []);
+setTimeout(() => vigilarAyudas().catch(()=>{}), 6000);
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]"); if (!el) return; const a = el.dataset.act;
+  if (a === "ayu-buscar") { const q = el.dataset.q || $("#ayuQ")?.value.trim(); if (q) lanzarBusqueda(q); }
+  else if (a === "ayu-vigilar" || a === "ayu-novigilar") { const v = new Set(DB._meta.ayudasVigilar || []); if (a === "ayu-novigilar" || v.has(el.dataset.q)) v.delete(el.dataset.q); else v.add(el.dataset.q); DB._meta.ayudasVigilar = [...v]; ayuCache.t = 0; save(); render(); if (a === "ayu-vigilar" && v.has(el.dataset.q)) { toast("Te avisaré cuando salgan convocatorias nuevas"); vigilarAyudas().catch(()=>{}); } }
+  else if (a === "ayu-vistas") { ayuCache.nuevas = []; ayuSave(); render(); }
+  else if (a === "ayu-solicitud") { openForm("solicitudes"); const f = $("#f_ayuda"); if (f) f.value = el.dataset.t; }
+});
+document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "ayuQ") { e.preventDefault(); const q = e.target.value.trim(); if (q) lanzarBusqueda(q); } });
+
+/* ============ Trazabilidad con QR: cada lote lleva un código que muestra su origen y sus tratamientos ============ */
+/* La ficha viaja dentro del propio enlace (comprimida), así funciona sin servidor y el comprador no necesita la app */
+const URL_PUBLICA = "https://alejandragri.github.io/AGRIOR/";
+const baseURL = () => /^https?:$/.test(location.protocol) && !/claude|anthropic|localhost|127\.0\.0\.1/.test(location.hostname) ? location.origin + location.pathname : URL_PUBLICA;
+const b64url = u8 => { let s = ""; for (const b of u8) s += String.fromCharCode(b); return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); };
+const unb64url = s => { s = s.replace(/-/g,"+").replace(/_/g,"/"); while (s.length % 4) s += "="; const b = atob(s), u = new Uint8Array(b.length); for (let i=0;i<b.length;i++) u[i] = b.charCodeAt(i); return u; };
+async function comprimirTxt(txt){
+  const u8 = new TextEncoder().encode(txt);
+  if (!window.CompressionStream) return "j" + b64url(u8);
+  const st = new Blob([u8]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+  return "z" + b64url(new Uint8Array(await new Response(st).arrayBuffer()));
+}
+async function descomprimirTxt(s){
+  const u8 = unb64url(s.slice(1));
+  if (s[0] === "j") return new TextDecoder().decode(u8);
+  const st = new Blob([u8]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return await new Response(st).text();
+}
+/* Datos públicos del lote: origen, fechas y tratamientos (sin clientes ni precios) */
+function datosPublicos(cod){
+  const F = fichaLote(cod); if (!F) return null;
+  const T = DB._meta.titular || {}, l = F.l, p = DB.parcelas.find(x=>x.id===l.parcela), a = DB.apiarios.find(x=>x.id===l.apiario);
+  const cu = p ? DB.cultivos.find(c=>c.parcela===p.id && String(c.campana)===l.fecha.slice(0,4)) : null;
+  return {v:1, c:l.codigo, p:l.producto, k:Math.round(l.kg), f:l.fecha, t:T.nombre||"", r:p ? "" : (T.rega_api||""),
+    o: p ? {n:p.nombre, m:[p.municipio, p.provincia].filter(Boolean).join(", "), s:[p.poligono, p.parcela, p.recinto].filter(x=>x!==""&&x!=null).join("/"), h:Number(p.superficie||0), vr:cu?.variedad||""}
+         : {n:a?.nombre||l.origen, m:a?.municipio||"", s:a?.codigo||"", col:a ? DB.colmenas.filter(c=>c.apiario===a.id&&c.estado!=="Muerta"&&c.estado!=="Vendida").length : 0},
+    e: F.E.filter(e=>e.tipo !== "Labor").slice(-25).map(e=>[e.fecha, e.tipo, e.txt.slice(0,110), e.nota||"", e.ok?1:0]), g:today()};
+}
+async function urlLote(cod){ const d = datosPublicos(cod); return d ? `${baseURL()}#lote=${await comprimirTxt(JSON.stringify(d))}` : ""; }
+function qrDe(txt){ if (typeof qrcode === "undefined") return null; const q = qrcode(0, "M"); q.addData(txt); q.make(); return q; }
+function qrSVG(txt){ const q = qrDe(txt); return q ? q.createSvgTag({cellSize:4, margin:2, scalable:true}) : `<p class="muted">No se ha podido cargar el generador de QR.</p>`; }
+/* Dibuja el QR en un PDF de jsPDF con cuadraditos (sin imágenes) */
+function qrEnPdf(doc, txt, x, y, lado){
+  const q = qrDe(txt); if (!q) return false; const n = q.getModuleCount(), m = lado / (n + 2);
+  doc.setFillColor(255,255,255); doc.rect(x, y, lado, lado, "F"); doc.setFillColor(0,0,0);
+  for (let r=0;r<n;r++) for (let c=0;c<n;c++) if (q.isDark(r, c)) doc.rect(x + (c+1)*m, y + (r+1)*m, m + 0.01, m + 0.01, "F");
+  return true;
+}
+async function verQR(cod){
+  const url = await urlLote(cod), F = fichaLote(cod), dlg = $("#dlg");
+  dlg.innerHTML = `<div class="dlg"><header><h2>Código QR del lote ${esc(cod)}</h2><button type="button" class="x" data-act="close" aria-label="Cerrar">×</button></header>
+    <div class="body" style="grid-template-columns:1fr;justify-items:center;text-align:center">
+      <div class="qr-box">${qrSVG(url)}</div>
+      <p style="margin:0"><strong>${esc(F.l.producto)}</strong> · ${fnum(F.l.kg)} kg · ${esc(F.l.origen)}</p>
+      <p class="muted" style="margin:0;max-width:52ch">Al escanearlo con el móvil, el comprador o la cooperativa ve el origen, la fecha de cosecha y los tratamientos del lote, sin precios ni clientes. Si cambias algo del lote, vuelve a imprimir la etiqueta.</p>
+      <div class="toolbar" style="justify-content:center"><button class="btn" data-act="qr-copiar" data-url="${esc(url)}">Copiar enlace</button><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Ver la ficha</a><button class="btn primary" data-act="qr-etiquetas" data-cod="${esc(cod)}">Etiquetas para imprimir (PDF)</button></div>
+      <p class="muted" style="font-size:.78rem;margin:0">${url.length} caracteres · ${baseURL() === URL_PUBLICA ? "enlace a la app publicada" : "enlace a esta app"}</p></div></div>`;
+  dlg.dataset.t = ""; dlg.showModal();
+}
+async function pdfEtiquetas(cod){
+  if (!window.jspdf) return toast("El generador de PDF no está disponible");
+  const url = await urlLote(cod), F = fichaLote(cod), T = DB._meta.titular || {}, {jsPDF} = window.jspdf, doc = new jsPDF({unit:"mm", format:"a4"});
+  // 3 × 7 etiquetas de 70 × 42 mm
+  for (let r=0;r<7;r++) for (let c=0;c<3;c++) { const x = c*70, y = 4 + r*41.5;
+    qrEnPdf(doc, url, x + 3, y + 3, 34);
+    doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(30); doc.text(doc.splitTextToSize(F.l.producto, 30), x + 38, y + 8);
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.text([`Lote ${cod}`, fdate(F.l.fecha), doc.splitTextToSize(F.l.origen, 30)[0], (T.nombre||"").slice(0, 26), "Escanea para ver el origen"].filter(Boolean), x + 38, y + 20); }
+  try { doc.save(`etiquetas-${cod}.pdf`); toast("PDF descargado"); } catch(e) { toast("No se pudo descargar el PDF en este navegador"); }
+}
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]"); if (!el) return; const a = el.dataset.act;
+  if (a === "traz-qr") verQR(el.dataset.cod);
+  else if (a === "qr-etiquetas") pdfEtiquetas(el.dataset.cod);
+  else if (a === "qr-copiar") navigator.clipboard?.writeText(el.dataset.url).then(()=>toast("Enlace copiado"), ()=>toast("No se pudo copiar"));
+});
+/* Botón «Código QR» en la ficha del lote */
+{ const _r = TABS.trazabilidad.render; TABS.trazabilidad.render = (...a) => _r(...a).replace(/<button class="btn" data-act="traz-pdf" data-cod="([^"]*)">Ficha en PDF<\/button>/, (m, c) => `<div class="toolbar"><button class="btn primary" data-act="traz-qr" data-cod="${c}">▦ Código QR</button>${m}</div>`); }
+
+/* ---- Vista pública de la ficha (cuando se abre el enlace del QR) ---- */
+function fichaPublicaHTML(d){
+  const ap = !!d.o.col;
+  return `<div class="ficha-pub">
+    <div class="eyebrow">Ficha de trazabilidad</div>
+    <h1>${esc(d.p)}</h1>
+    <p class="muted">Lote <strong>${esc(d.c)}</strong> · ${ap?"extraído":"cosechado"} el ${fdate(d.f)} · ${fnum(d.k)} kg</p>
+    <section class="panel"><h3>Origen</h3><dl class="kv">
+      ${d.t?`<dt>Productor</dt><dd>${esc(d.t)}</dd>`:""}
+      <dt>${ap?"Apiario":"Parcela"}</dt><dd>${esc(d.o.n)}</dd>
+      ${d.o.m?`<dt>Municipio</dt><dd>${esc(d.o.m)}</dd>`:""}
+      ${d.o.s?`<dt>${ap?"Código":"SIGPAC (pol./par./rec.)"}</dt><dd>${esc(d.o.s)}</dd>`:""}
+      ${d.o.h?`<dt>Superficie</dt><dd>${fnum(d.o.h)} ha</dd>`:""}${d.o.vr?`<dt>Variedad</dt><dd>${esc(d.o.vr)}</dd>`:""}
+      ${ap?`<dt>Colmenas</dt><dd>${d.o.col}</dd>`:""}${d.r?`<dt>REGA</dt><dd>${esc(d.r)}</dd>`:""}</dl></section>
+    <section class="panel"><h3>${ap?"Tratamientos y manejo":"Tratamientos y abonados"} del último año</h3>
+      ${d.e.length ? `<ol class="traz-line">${d.e.map(([f,t,x,n,ok])=>`<li class="${ok?"":"bad"}"><strong>${fdate(f)} · ${esc(t)}</strong><span>${esc(x)}${n?` · <em>${esc(n)}</em>`:""}${ok&&/Tratamiento/.test(t)?" · ✓ respetado antes de la cosecha":""}</span></li>`).join("")}</ol>` : `<p class="muted">No constan tratamientos en el año anterior a la cosecha.</p>`}</section>
+    <p class="muted" style="font-size:.8rem">Datos declarados por el productor en su cuaderno de explotación. Ficha generada el ${fdate(d.g)} con Mi Explotación.</p></div>`;
+}
+const LOTE_HASH = location.hash.startsWith("#lote=") ? location.hash.slice(6) : "";
+if (LOTE_HASH) {
+  document.documentElement.classList.add("modo-ficha");
+  render = function(){
+    $("#nav").hidden = true; const v = $("#view");
+    if (render._d) { v.innerHTML = fichaPublicaHTML(render._d); return; }
+    v.innerHTML = `<p class="muted">Cargando ficha…</p>`;
+    descomprimirTxt(LOTE_HASH).then(t => { render._d = JSON.parse(t); render(); document.title = `Lote ${render._d.c} · ${render._d.p}`; })
+      .catch(() => { v.innerHTML = `<div class="empty">Este código no se puede leer. Pide al productor una etiqueta nueva.</div>`; });
+  };
+  // Quien abre la ficha no necesita datos de ejemplo ni sincronizar
+  save = async () => {}; sincronizar = async () => {}; copiaDiaria = async () => {}; comprobarAvisos = () => {};
+}
+
+/* ============ Cuaderno por voz en el tractor: dictar el tratamiento al acabar y la parcela sale del GPS ============ */
+/* Ejemplos: «Tratado con cobre a dos kilos por hectárea contra repilo», «Abonado con urea a doscientos kilos», «Regado seis horas» */
+const UNIDADES_VOZ = [[/litros? por hectarea|l\/ha/, "L/ha"], [/kilos? por hectarea|kilogramos? por hectarea|kg\/ha/, "kg/ha"], [/(centimetros cubicos|cc|mililitros) por (hectolitro|cien litros)/, "cc/hL"], [/gramos? por (hectolitro|cien litros)/, "g/hL"], [/por ciento|%/, "%"]];
+const NUM_VOZ = "(\\d+(?:[.,]\\d+)?|(?:un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|veinte|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|cien|ciento|doscientos|trescientos|cuatrocientos|quinientos|seiscientos|setecientos|ochocientos|novecientos|mil)(?:\\s+(?:y\\s+)?(?:media|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|veinte|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|cien|ciento|doscientos|trescientos|quinientos|mil))*)";
+const NUM2 = {sesenta:60, setenta:70, ochenta:80, noventa:90, cien:100, ciento:100, doscientos:200, trescientos:300, cuatrocientos:400, quinientos:500, seiscientos:600, setecientos:700, ochocientos:800, novecientos:900, mil:1000};
+function numVoz(txt){
+  const t = norm(txt).trim(); if (/^\d+([.,]\d+)?$/.test(t)) return Number(t.replace(",", "."));
+  let n = 0, hay = false; for (const w of t.split(/\s+/)) { if (w === "y") continue; const v = NUM[w] ?? NUM2[w]; if (v == null) continue; hay = true; if (w === "mil") n = (n || 1) * 1000; else n += v; }
+  return hay ? n : null;
+}
+function interpretarTratamiento(txt){
+  const t = norm(txt), r = {};
+  r.tipo = /abon|urea|nitrato|complejo|fertiliz|sulfato amonico|cobertera/.test(t) ? "abonados" : /\breg(ado|ar|ue|amos|ando)|riego/.test(t) ? "riegos" : "fitosanitarios";
+  if (/\bayer\b/.test(t)) r.fecha = addDays(today(), -1); else r.fecha = today();
+  if (r.tipo === "riegos") {
+    const h = t.match(new RegExp(`${NUM_VOZ}(?: y media)? horas?`)); if (h) r.horas = (numVoz(h[1]) || 0) + (/y media horas?$/.test(h[0]) || /horas? y media/.test(t) ? 0.5 : 0);
+    const m = t.match(new RegExp(`${NUM_VOZ} (?:metros cubicos|m3|metros)`)); if (m) r.m3 = numVoz(m[1]);
+    return r;
+  }
+  // Producto: el del almacén que mejor encaje por nombre o por materia activa
+  const tipos = r.tipo === "abonados" ? ["Abono"] : ["Fitosanitario"];
+  const P = DB.productos.filter(p=>tipos.includes(p.tipo));
+  const p = mejor(P, x=>x.nombre, txt) || mejor(P, x=>(x.materia||"").replace(/\d+\s*%/g, ""), txt);
+  if (p) r.prod = p;
+  else { const m = t.match(/(?:con|de)\s+(?:el |la |los |las )?([a-z0-9][a-z0-9\s\-]{2,30}?)(?=\s+(?:a|al|contra|para|en|por)\b|\s+\d|$)/); if (m) r.producto = m[1].trim().replace(/^\w/, c=>c.toUpperCase()); }
+  // Dosis y unidad
+  const dz = t.match(new RegExp(`(?:a|dosis(?: de)?)?\\s*\\b${NUM_VOZ}(?: y medio| y media| coma (\\w+))?\\s*(litros?|kilos?|kilogramos?|kg|centimetros cubicos|cc|mililitros|gramos?|por ciento)([^,.]*)`));
+  if (dz) { let v = numVoz(dz[1]); if (/y medi[oa]/.test(dz[0])) v += 0.5; if (dz[2]) { const dec = numVoz(dz[2]); if (dec != null) v = Number(`${Math.floor(v)}.${dec}`); }
+    r.dosis = v; const resto = `${dz[3]}${dz[4]}`; r.unidad = (UNIDADES_VOZ.find(([re]) => re.test(resto)) || [, /litro/.test(dz[3]) ? "L/ha" : /gramo/.test(dz[3]) ? "g/hL" : /cc|centimetro|mililitro/.test(dz[3]) ? "cc/hL" : /ciento/.test(dz[3]) ? "%" : "kg/ha"])[1]; }
+  const pr = t.match(/(?:contra|para)\s+(?:el |la |los |las )?([a-z\s]{3,40}?)(?=\s+(?:en|con|a|al|por|hoy|ayer)\b|[,.]|$)/); if (pr) r.problema = pr[1].trim().replace(/^\w/, c=>c.toUpperCase());
+  const ha = t.match(new RegExp(`${NUM_VOZ}(?: y media)? hectareas?`)); if (ha) r.sup = (numVoz(ha[1]) || 0) + (/y media hectareas?$/.test(ha[0]) ? 0.5 : 0);
+  const pn = mejor(DB.parcelas, x=>x.nombre, txt); if (pn) r.parcelaDicha = pn;
+  const w = mejor(DB.trabajadores, x=>x.nombre, txt); if (w) r.trab = w;
+  return r;
+}
+/* Aplicador y equipo: los del último tratamiento, o el trabajador con carné */
+function ultimoDe(t, k){ return DB[t].filter(r=>r[k]).sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""))[0]?.[k] || ""; }
+async function abrirTratamientoVoz(txt, pos){
+  const r = interpretarTratamiento(txt);
+  const enGPS = pos ? parcelaEn(pos[0], pos[1]) : null, parc = r.parcelaDicha || enGPS?.p || null;
+  openForm(r.tipo);
+  const set = (k, v) => { const f = $(`#f_${k}`); if (f && v != null && v !== "") { f.value = v; f.dispatchEvent(new Event("change", {bubbles:true})); } };
+  set("fecha", r.fecha);
+  if (parc) set("parcela", parc.id);
+  const ha = r.sup || Number(parc?.superficie || 0);
+  if (r.tipo === "riegos") { set("horas", r.horas); set("m3", r.m3); }
+  else {
+    if (r.prod) { set("prod", r.prod.id); set("producto", r.prod.nombre); } else set("producto", r.producto);
+    if (r.tipo === "fitosanitarios") {
+      set("problema", r.problema); set("dosis", r.dosis); set("unidad", r.unidad); set("sup_tratada", ha || "");
+      const cu = parc ? DB.cultivos.filter(c=>c.parcela===parc.id).sort((a,b)=>Number(b.campana)-Number(a.campana))[0] : null; if (cu) set("cultivo", cu.cultivo);
+      const w = r.trab || DB.trabajadores.find(x=>x.activo && x.carne && x.carne !== "No tiene");
+      set("aplicador", w ? `${w.nombre}${w.carne && w.carne !== "No tiene" ? " · carné " + w.carne.toLowerCase() : ""}` : ultimoDe("fitosanitarios", "aplicador"));
+      set("equipo", ultimoDe("fitosanitarios", "equipo"));
+      // Gasto del almacén: dosis × hectáreas cuando la unidad coincide
+      if (r.prod && r.dosis && ha) { const u = (r.prod.unidad||"").toLowerCase(); if ((r.unidad === "L/ha" && u === "l") || (r.unidad === "kg/ha" && u === "kg")) set("consumo", Math.round(r.dosis * ha * 100) / 100); }
+    } else {
+      set("tipo", "Mineral"); set("cantidad", r.dosis); set("superficie", ha || "");
+      const k = npkProducto(r.prod) || leerNPK(r.producto); if (k) set("riqueza", k.join("-"));
+      if (r.prod && r.dosis && ha && /kg/i.test(r.prod.unidad||"kg")) set("consumo", Math.round(r.dosis * ha));
+    }
+  }
+  set("notas", `Dictado: «${txt}»${pos ? ` · GPS ${pos[0].toFixed(5)}, ${pos[1].toFixed(5)}` : ""}`);
+  const falta = [!parc && "parcela", r.tipo !== "riegos" && !r.prod && !r.producto && "producto", r.tipo !== "riegos" && !r.dosis && "dosis"].filter(Boolean);
+  const dondeTxt = parc ? (r.parcelaDicha ? `Parcela ${parc.nombre} (dicha)` : enGPS?.dentro ? `Estás en ${parc.nombre}` : `Cerca de ${parc.nombre} (${enGPS.m} m)`) : pos ? "No estás dentro de ninguna parcela dibujada" : "Sin GPS";
+  toast(`${dondeTxt}.${falta.length ? ` Revisa: falta ${falta.join(", ")}` : " Revisa y guarda"}`);
+}
+function dialogoTratamientoVoz(){
+  if (!SR) return toast("Este navegador no permite dictar. Usa Chrome en Android o Safari en iPhone.");
+  if (vozActiva) return vozActiva.stop();
+  let pos = null, dicho = "";
+  miPosicion().then(p => { pos = p; const e = $("#vozGps"); if (e) { const q = parcelaEn(p[0], p[1]); e.textContent = q ? `📍 ${q.dentro ? "En" : "Cerca de"} ${q.p.nombre}` : "📍 Fuera de tus parcelas dibujadas"; } }).catch(() => { const e = $("#vozGps"); if (e) e.textContent = "📍 Sin GPS: di el nombre de la parcela"; });
+  vozBox = document.createElement("div"); vozBox.className = "voz-box";
+  vozBox.innerHTML = `<div class="voz-pulse">🎙</div><strong>Dicta el tratamiento</strong><p id="vozGps" class="muted" style="margin:0">📍 Buscando parcela…</p><p id="vozTxt" class="muted">Ejemplo: «Tratado con cobre a dos kilos por hectárea contra repilo»</p><button class="btn" data-act="voz-stop">Parar</button>`;
+  document.body.append(vozBox);
+  escuchar(t => { dicho = t; }, p => { const e = $("#vozTxt"); if (e) e.textContent = p; }, async () => {
+    vozBox?.remove(); vozBox = null; if (!dicho) return;
+    if (!pos) pos = await Promise.race([miPosicion().catch(() => null), new Promise(r => setTimeout(() => r(null), 4000))]);
+    abrirTratamientoVoz(dicho, pos);
+  });
+}
+document.addEventListener("click", e => { if (e.target.closest('[data-act="voz-trat"]')) dialogoTratamientoVoz(); });
+/* Botones: en Tratamientos y Abonados, en el panel Hoy y en el guiado GPS */
+{ const _vm = viewModulo; viewModulo = mod => { let h = _vm(mod); const t = UI.tab[mod];
+  if (mod === "agri" && ["fitosanitarios","abonados","riegos"].includes(t)) h = h.replace(`<button class="btn primary" data-new="${t}">`, `<button class="btn" data-act="voz-trat">🎙 Dictar con GPS</button><button class="btn primary" data-new="${t}">`);
+  return h; }; }
+{ const _ph = panelHoy; panelHoy = () => _ph().replace('<button class="btn" data-act="voz-parte">🎙 Parte por voz</button>', '<button class="btn" data-act="voz-parte">🎙 Parte por voz</button><button class="btn" data-act="voz-trat">🎙 Tratamiento por voz</button>'); }
+
+/* ============ Satélite: vigor del cultivo (NDVI de Sentinel-2) en cada parcela, cada pocos días ============ */
+/* Imágenes Sentinel-2 (Copernicus, gratuitas) servidas por el catálogo público de Microsoft Planetary Computer, sin clave.
+   El satélite pasa cada 2-5 días; con nubes la imagen no sirve y se descarta. */
+const PC = "https://planetarycomputer.microsoft.com";
+const SAT_KEY = "mi-explotacion-satelite";
+const EXPRS = [{e:"(B08-B04)/(B08+B04)", extra:"&asset_as_band=True"}, {e:"(B08_b1-B04_b1)/(B08_b1+B04_b1)", extra:"&assets=B08&assets=B04"}];
+let satCache = {}; try { satCache = JSON.parse(localStorage.getItem(SAT_KEY) || "{}"); } catch(e) {}
+const satSave = () => { try { localStorage.setItem(SAT_KEY, JSON.stringify(satCache)); } catch(e) {} };
+const satExpr = () => EXPRS[satCache._v || 0];
+const geoJSON = p => ({type:"Polygon", coordinates:[[...p.geo.map(([la, lo]) => [lo, la]), [p.geo[0][1], p.geo[0][0]]]]});
+const huella = p => p.geo.map(q=>q.map(x=>x.toFixed(5)).join(",")).join(";");
+function conTiempo(url, opt = {}, ms = 25000){ const c = new AbortController(), t = setTimeout(() => c.abort(), ms); return fetch(url, {...opt, signal:c.signal}).finally(() => clearTimeout(t)); }
+/* Imágenes de los últimos meses con pocas nubes sobre la parcela (una por día) */
+async function buscarImagenes(p, dias = 150){
+  const body = {collections:["sentinel-2-l2a"], intersects:geoJSON(p), datetime:`${addDays(today(), -dias)}T00:00:00Z/${today()}T23:59:59Z`, query:{"eo:cloud_cover":{lt:40}}, sortby:[{field:"datetime", direction:"desc"}], limit:60};
+  const r = await conTiempo(`${PC}/api/stac/v1/search`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  if (!r.ok) throw new Error(`catálogo ${r.status}`);
+  const j = await r.json(), porDia = {};
+  for (const f of j.features || []) { const d = (f.properties?.datetime || "").slice(0,10), cc = f.properties?.["eo:cloud_cover"] ?? 100; if (!porDia[d] || cc < porDia[d].cc) porDia[d] = {id:f.id, f:d, cc}; }
+  return Object.values(porDia).sort((a,b)=>b.f.localeCompare(a.f));
+}
+/* Estadística del NDVI dentro del contorno de la parcela */
+function buscaStats(o){ if (!o || typeof o !== "object") return null; if (typeof o.mean === "number") return o; for (const v of Object.values(o)) { const s = buscaStats(v); if (s) return s; } return null; }
+async function statsNDVI(p, img){
+  const feat = {type:"Feature", properties:{}, geometry:geoJSON(p)};
+  for (let k = 0; k < EXPRS.length; k++) {
+    const i = ((satCache._v || 0) + k) % EXPRS.length, x = EXPRS[i];
+    const u = `${PC}/api/data/v1/item/statistics?collection=sentinel-2-l2a&item=${encodeURIComponent(img.id)}&expression=${encodeURIComponent(x.e)}${x.extra}&nodata=0&histogram_bins=24&histogram_range=-0.2,1`;
+    let r; try { r = await conTiempo(u, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(feat)}); } catch(e) { throw e; }
+    if (r.status >= 400 && r.status < 500) continue;
+    if (!r.ok) throw new Error(`estadística ${r.status}`);
+    const s = buscaStats(await r.json()); if (!s) continue;
+    if (satCache._v !== i) { satCache._v = i; satSave(); }
+    // Parte de la parcela claramente más floja que la media (0,15 de NDVI por debajo)
+    let weak = 0; const h = s.histogram; if (Array.isArray(h) && h.length === 2) { const [cnt, ed] = h, tot = cnt.reduce((a,b)=>a+b,0) || 1; for (let j=0;j<cnt.length;j++) if (ed[j+1] <= s.mean - 0.15) weak += cnt[j]; weak = weak / tot * 100; }
+    return {mean:s.mean, min:s.min, max:s.max, p10:s.percentile_2 ?? s.min, weak:Math.round(weak), valid:s.valid_percent ?? 100};
+  }
+  throw new Error("formato no reconocido");
+}
+/* Actualiza las imágenes de una parcela (solo calcula las nuevas) */
+async function actualizarSat(p, max = 10, onProg){
+  const h = huella(p), c = satCache[p.id]?.h === h ? satCache[p.id] : {h, imgs:[]};
+  const imgs = await buscarImagenes(p), hechas = new Map(c.imgs.map(i=>[i.id, i]));
+  const nuevas = imgs.slice(0, max).filter(i=>!hechas.has(i.id));
+  let n = 0;
+  for (const img of nuevas) { try { const s = await statsNDVI(p, img); hechas.set(img.id, {...img, ...s}); } catch(e) { if (!n && !hechas.size) throw e; } n++; onProg && onProg(n, nuevas.length); }
+  c.imgs = [...hechas.values()].filter(i=>typeof i.mean === "number").sort((a,b)=>b.f.localeCompare(a.f)).slice(0, 30); c.t = Date.now();
+  satCache[p.id] = c; satSave(); return c;
+}
+/* Una imagen con nubes o sombra baja mucho el NDVI de golpe: se marca como dudosa si cae y la siguiente se recupera */
+function imgsLimpias(L){
+  const out = L.filter(i=>i.valid >= 60);
+  return out.map((i, k) => { const ant = out[k+1], sig = out[k-1]; const dudosa = i.cc > 15 && ant && sig && i.mean < ant.mean - 0.12 && sig.mean > i.mean + 0.1; return {...i, dudosa}; });
+}
+const nivelVigor = v => v < 0.2 ? ["Suelo desnudo o rastrojo", ""] : v < 0.35 ? ["Vigor bajo", "warn"] : v < 0.55 ? ["Vigor medio", ""] : ["Vigor alto", "ok"];
+function lecturaSat(p, L){
+  const ok = L.filter(i=>!i.dudosa), u = ok[0], a = ok[1]; if (!u) return null;
+  const leñoso = /OV|VI|FS|FY/.test((p.uso||"").slice(0,2)), out = [];
+  const [nv, cls] = nivelVigor(u.mean);
+  out.push({lv:cls, t:`${nv}: NDVI ${fnum(Math.round(u.mean*100)/100)} el ${fdate(u.f)}`});
+  if (a) { const d = u.mean - a.mean; if (d <= -0.08) out.push({lv:"warn", t:`Ha bajado ${fnum(Math.round(-d*100)/100)} desde el ${fdate(a.f)}`, s:"Si no es por cosecha, siega o labor, conviene mirar la parcela: sequía, plaga, helada o falta de abono."}); else if (d >= 0.08) out.push({lv:"ok", t:`Ha subido ${fnum(Math.round(d*100)/100)} desde el ${fdate(a.f)}`}); else out.push({lv:"", t:`Estable desde el ${fdate(a.f)}`}); }
+  if (u.weak >= 15) out.push({lv:"warn", t:`Un ${u.weak} % de la parcela va más flojo que el resto`, s:"Son las zonas en rojo o naranja del mapa. Revisa si coinciden con manchas de suelo, encharcamiento, fallos de siembra o de riego."});
+  if (leñoso) out.push({lv:"", t:"En olivar, viñedo y frutos secos el suelo entre filas baja el NDVI: compara la parcela consigo misma, no con un cereal."});
+  return out;
+}
+function graficoNDVI(L){
+  const pts = L.slice().reverse(); if (pts.length < 2) return "";
+  const xs = pts.map(i=>new Date(i.f).getTime()), x0 = Math.min(...xs), x1 = Math.max(...xs), W = 340, H = 110, Y = v => H - Math.max(0, Math.min(1, v)) * H, X = t => (t - x0) / (x1 - x0 || 1) * W;
+  return `<svg viewBox="-24 -6 ${W+30} ${H+22}" class="sat-g" role="img" aria-label="Evolución del vigor">
+    ${[0, 0.25, 0.5, 0.75].map(v=>`<line x1="0" x2="${W}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="-4" y="${Y(v)+3}" text-anchor="end" font-size="9" fill="var(--muted)">${String(v).replace(".", ",")}</text>`).join("")}
+    <polyline fill="none" stroke="var(--agri)" stroke-width="2" points="${pts.filter(i=>!i.dudosa).map(i=>`${X(new Date(i.f).getTime()).toFixed(1)},${Y(i.mean).toFixed(1)}`).join(" ")}"/>
+    ${pts.map(i=>`<circle cx="${X(new Date(i.f).getTime()).toFixed(1)}" cy="${Y(i.mean).toFixed(1)}" r="3.5" fill="${i.dudosa?"var(--surface)":"var(--agri)"}" stroke="var(--agri)"><title>${fdate(i.f)} · NDVI ${fnum(Math.round(i.mean*100)/100)}${i.dudosa?" (posible nube)":""}</title></circle>`).join("")}
+    <text x="0" y="${H+16}" font-size="9" fill="var(--muted)">${fdate(pts[0].f)}</text><text x="${W}" y="${H+16}" font-size="9" text-anchor="end" fill="var(--muted)">${fdate(pts[pts.length-1].f)}</text></svg>`;
+}
+UI.satP = UI.satP || ""; UI.satImg = UI.satImg || ""; UI.satCapa = UI.satCapa || "ndvi";
+let satMsg = "", SATMAP = null;
+TABS.satelite = {title: "Satélite", render(){
+  const P = DB.parcelas.filter(p=>p.geo?.length > 2);
+  if (!P.length) return `<div class="empty">Dibuja el contorno de tus parcelas en la pestaña <button class="btn" data-go="agri" data-tab="mapa">Mapa</button> (o impórtalo de la PAC) para ver su vigor desde el satélite.</div>`;
+  if (!P.some(p=>p.id===UI.satP)) UI.satP = P[0].id;
+  const p = P.find(x=>x.id===UI.satP), c = satCache[p.id]?.h === huella(p) ? satCache[p.id] : null, L = c ? imgsLimpias(c.imgs) : [];
+  if (!L.some(i=>i.id===UI.satImg)) UI.satImg = L.find(i=>!i.dudosa)?.id || L[0]?.id || "";
+  const lec = lecturaSat(p, L), cen = centro(p.geo);
+  return `<div class="toolbar"><select id="satP" aria-label="Parcela" style="width:auto">${P.map(x=>`<option value="${x.id}" ${x.id===p.id?"selected":""}>${esc(x.nombre)}${satCache[x.id]?.imgs?.length?"":" · sin datos"}</option>`).join("")}</select>
+    <button class="btn primary" data-act="sat-act">${c ? "Buscar imágenes nuevas" : "Ver el vigor de esta parcela"}</button>
+    <button class="btn" data-act="sat-todas">Actualizar todas</button>
+    <a class="btn" target="_blank" rel="noopener" href="https://browser.dataspace.copernicus.eu/?zoom=15&lat=${cen[0].toFixed(5)}&lng=${cen[1].toFixed(5)}&datasetId=S2_L2A_CDAS&layerId=3_NDVI">Visor de Copernicus</a></div>
+  <p id="satMsg" class="muted" style="margin:0">${satMsg || (c ? `Última consulta: ${new Date(c.t).toLocaleString("es-ES")}. ${L.length} imágenes sin nubes en los últimos 5 meses.` : "El NDVI mide lo verde y activo que está el cultivo: de 0 (suelo) a casi 1 (cultivo muy vigoroso). Se calcula con las imágenes del satélite Sentinel-2.")}</p>
+  ${L.length ? `<div class="grid2">
+    <section class="panel"><h3>Cómo va ${esc(p.nombre)}</h3>
+      ${lec ? `<ul class="alerts">${lec.map(a=>`<li class="${a.lv}"><div><strong>${esc(a.t)}</strong>${a.s?`<small>${esc(a.s)}</small>`:""}</div></li>`).join("")}</ul>` : ""}
+      ${graficoNDVI(L)}
+      <div class="sat-dias">${L.map(i=>`<button class="btn ${i.id===UI.satImg?"primary":""}" data-act="sat-img" data-id="${esc(i.id)}" title="Nubes en la escena: ${Math.round(i.cc)} %">${fdate(i.f).slice(0,5)} · ${fnum(Math.round(i.mean*100)/100)}${i.dudosa?" ☁":""}</button>`).join("")}</div>
+      <div class="toolbar"><button class="btn" data-act="sat-revisar" data-pid="${p.id}">+ Recordatorio para ir a mirarla</button></div>
+    </section>
+    <section class="panel"><div class="head"><h3>Mapa de vigor</h3><select id="satCapa" style="width:auto" aria-label="Capa"><option value="ndvi" ${UI.satCapa==="ndvi"?"selected":""}>Vigor (NDVI)</option><option value="color" ${UI.satCapa==="color"?"selected":""}>Color real</option></select></div>
+      <div id="satMap"></div>
+      <p class="muted" style="font-size:.82rem;margin:0"><span class="sat-ley"></span> Rojo: poco vigor · amarillo: medio · verde: mucho. Cada cuadradito son 10 × 10 m. Imagen del ${fdate(L.find(i=>i.id===UI.satImg)?.f)}.</p></section></div>` : ""}
+  <p class="muted" style="font-size:.82rem">Imágenes Sentinel-2 del programa Copernicus de la Unión Europea, servidas gratis por Microsoft Planetary Computer. Necesita conexión. Las nubes y sus sombras falsean el dato: las imágenes que parecen afectadas se marcan con ☁ y no cuentan en los avisos.</p>`;
+}, mount(){ montarSatMapa(); }};
+function montarSatMapa(){
+  const el = $("#satMap"); if (!el || typeof L === "undefined") return;
+  const p = DB.parcelas.find(x=>x.id===UI.satP), img = UI.satImg; if (!p || !img) return;
+  if (SATMAP) { SATMAP.remove(); SATMAP = null; }
+  SATMAP = L.map(el, {zoomControl:true, attributionControl:true});
+  L.tileLayer("https://www.ign.es/wmts/pnoa-ma?service=WMTS&request=GetTile&version=1.0.0&format=image/jpeg&layer=OI.OrthoimageCoverage&style=default&tilematrixset=GoogleMapsCompatible&tilematrix={z}&tilerow={y}&tilecol={x}", {maxZoom:19, attribution:"PNOA © IGN"}).addTo(SATMAP);
+  const x = satExpr(), base = `${PC}/api/data/v1/item/tiles/WebMercatorQuad/{z}/{x}/{y}@1x?collection=sentinel-2-l2a&item=${encodeURIComponent(img)}`;
+  const url = UI.satCapa === "color" ? `${base}&assets=visual&asset_bidx=visual%7C1%2C2%2C3&nodata=0` : `${base}&expression=${encodeURIComponent(x.e)}${x.extra}&rescale=0,0.85&colormap_name=rdylgn&nodata=0`;
+  const capa = L.tileLayer(url, {maxZoom:19, maxNativeZoom:16, opacity:0.85, attribution:"Copernicus Sentinel-2 · Planetary Computer"}).addTo(SATMAP);
+  capa.on("tileerror", () => { const m = $("#satMsg"); if (m && !m.dataset.err) { m.dataset.err = 1; m.textContent = "No se ha podido dibujar la imagen del satélite sobre el mapa. Los datos de vigor siguen siendo válidos; puedes ver la imagen en el visor de Copernicus."; } });
+  // Oscurece lo que queda fuera de la parcela para centrar la vista
+  const mundo = [[85,-180],[85,180],[-85,180],[-85,-180]];
+  L.polygon([mundo, p.geo], {stroke:false, fillColor:"#000", fillOpacity:0.45, interactive:false}).addTo(SATMAP);
+  const pol = L.polygon(p.geo, {color:"#fff", weight:2, fill:false}).addTo(SATMAP);
+  SATMAP.fitBounds(pol.getBounds().pad(0.15));
+  setTimeout(() => SATMAP && SATMAP.invalidateSize(), 50);
+}
+async function satActualizar(ids){
+  const P = DB.parcelas.filter(p=>ids.includes(p.id) && p.geo?.length > 2); let ok = 0, err = "";
+  for (const [k, p] of P.entries()) {
+    satMsg = `Consultando el satélite${P.length>1?` (${k+1} de ${P.length}: ${p.nombre})`:""}…`; const m = $("#satMsg"); if (m) m.textContent = satMsg;
+    try { await actualizarSat(p, 10, (n, t) => { const e = $("#satMsg"); if (e) e.textContent = `${satMsg} imagen ${n} de ${t}`; }); ok++; }
+    catch(e) { err = e.name === "AbortError" ? "el servicio tarda demasiado" : e.message; }
+  }
+  satMsg = err && !ok ? `No se ha podido consultar el satélite (${navigator.onLine ? err : "sin conexión"}). Inténtalo más tarde o usa el visor de Copernicus.` : "";
+  if (UI.mod === "agri" && UI.tab.agri === "satelite") render();
+}
+document.addEventListener("change", e => {
+  if (e.target.id === "satP") { UI.satP = e.target.value; UI.satImg = ""; satMsg = ""; render(); }
+  if (e.target.id === "satCapa") { UI.satCapa = e.target.value; montarSatMapa(); }
+});
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]"); if (!el) return; const a = el.dataset.act;
+  if (a === "sat-act") satActualizar([UI.satP]);
+  else if (a === "sat-todas") satActualizar(DB.parcelas.filter(p=>p.geo?.length > 2).map(p=>p.id));
+  else if (a === "sat-img") { UI.satImg = el.dataset.id; render(); }
+  else if (a === "sat-revisar") { const p = DB.parcelas.find(x=>x.id===el.dataset.pid); openForm("recordatorios"); const set = (k, v) => { const f = $(`#f_${k}`); if (f) f.value = v; };
+    set("titulo", `Mirar las zonas flojas de ${p?.nombre||"la parcela"} (satélite)`); set("fecha", addDays(today(), 1)); set("tipo", "Labor"); set("modulo", "Agrícola"); }
+});
+{ const t = MODS.agri.tables, i = t.indexOf("mapa"); t.splice(i + 1, 0, "satelite"); }
+/* Revisión automática semanal de todas las parcelas dibujadas, cuando hay conexión */
+async function revisarSatelite(){
+  if (!navigator.onLine || UI.mod === "agri" && UI.tab.agri === "satelite") return;
+  if (satCache._auto && Date.now() - satCache._auto < 6*864e5) return;
+  const P = DB.parcelas.filter(p=>p.geo?.length > 2 && !p._demo).slice(0, 12); if (!P.length) return;
+  satCache._auto = Date.now(); satSave();
+  for (const p of P) { try { await actualizarSat(p, 3); } catch(e) { return; } }
+  if (UI.mod === "inicio") render();
+}
+setTimeout(() => revisarSatelite().catch(()=>{}), 12000);
+ALERTS.push(() => DB.parcelas.flatMap(p => {
+  const c = satCache[p.id]; if (!c || !p.geo || c.h !== huella(p)) return [];
+  const L = imgsLimpias(c.imgs).filter(i=>!i.dudosa), u = L[0], a = L[1]; if (!u || daysBetween(u.f, today()) > 20) return [];
+  const A = [];
+  if (a && u.mean - a.mean <= -0.1) A.push({lv:"warn", t:`El vigor de ${p.nombre} ha bajado`, s:`NDVI ${fnum(Math.round(a.mean*100)/100)} → ${fnum(Math.round(u.mean*100)/100)} según el satélite`, d:"", mod:"agri", tab:"satelite"});
+  if (u.weak >= 20 && u.mean >= 0.25) A.push({lv:"warn", t:`Zonas flojas en ${p.nombre}`, s:`Un ${u.weak} % de la parcela va peor que el resto (satélite del ${fdate(u.f)})`, d:"", mod:"agri", tab:"satelite"});
+  return A;
+}));
 
 /* ============ Sincronización en la nube (Supabase) y copias automáticas ============ */
 const SYNC_KEY = "mi-explotacion-sync";

@@ -130,7 +130,7 @@ SETTINGS.push(() => { const f = fiscal(); return `<form class="panel" id="fiscal
 document.addEventListener("submit", e => { if (e.target.id !== "fiscalF") return; e.preventDefault(); DB._meta.fiscal = Object.fromEntries(new FormData(e.target)); DB._meta.titular_u = now(); save(); render(); toast("Datos de facturación guardados"); });
 
 /* ---- PDF de factura ---- */
-function pdfFactura(v){
+async function pdfFactura(v){
   if (!v) return; if (!window.jspdf) return toast("El generador de PDF no está disponible");
   const {jsPDF} = window.jspdf, doc = new jsPDF({unit:"mm", format:"a4"}), T = DB._meta.titular || {}, F = fiscal(), c = DB.clientes.find(x=>x.id===v.cliente) || {}, verde = [47,82,51];
   const reagp = F.regimen === "REAGP", tt = totalesVenta(v);
@@ -150,6 +150,10 @@ function pdfFactura(v){
     reagp ? "Operación acogida al Régimen Especial de la Agricultura, Ganadería y Pesca (arts. 124 a 134 de la Ley 37/1992 del IVA). Compensación a tanto alzado." : "",
     v.notas||"", F.pie||""].filter(Boolean);
   doc.text(doc.splitTextToSize(pie.join("\n"), 182), 14, y);
+  // Código QR de trazabilidad de cada lote vendido
+  const lts = [...new Set((v.lineas||[]).map(l=>l.lote).filter(c=>c && lotes().some(x=>x.codigo===c)))].slice(0, 4);
+  if (lts.length && typeof qrEnPdf === "function") { let qy = Math.max(y + 18, 230), qx = 14; if (qy > 250) { doc.addPage(); qy = 20; }
+    for (const c of lts) { qrEnPdf(doc, await urlLote(c), qx, qy, 30); doc.setFontSize(8); doc.setTextColor(60); doc.text([`Lote ${c}`, "Escanea para ver origen", "y tratamientos"], qx + 32, qy + 8); qx += 62; } }
   try { doc.save(`factura-${v.numero||v.fecha}.pdf`); toast("PDF descargado"); } catch(e) { toast("No se pudo descargar el PDF en este navegador"); }
 }
 
@@ -187,12 +191,13 @@ TABS.trazabilidad = {title: "Trazabilidad", render(){
       ${F.ventas.length ? F.ventas.map(({v,l})=>`<li class="o"><strong>${fdate(v.fecha)} · Venta</strong><span>${fnum(l.cantidad)} ${esc(l.unidad||"kg")} a ${esc(refName("clientes", v.cliente))} · factura ${esc(v.numero)}</span></li>`).join("") : `<li><strong>Sin ventas</strong><span>Indica este lote en las líneas de la factura.</span></li>`}
     </ol></section></div>`;
 }};
-function pdfTrazabilidad(cod){
+async function pdfTrazabilidad(cod){
   const F = fichaLote(cod); if (!F) return; if (!window.jspdf) return toast("El generador de PDF no está disponible");
   const {jsPDF} = window.jspdf, doc = new jsPDF({unit:"mm", format:"a4"}), T = DB._meta.titular || {}, verde = [47,82,51];
   doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.setTextColor(...verde); doc.text(`Ficha de trazabilidad · Lote ${cod}`, 14, 20);
+  if (typeof qrEnPdf === "function") qrEnPdf(doc, await urlLote(cod), 168, 6, 28);
   doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(60); doc.text([T.nombre, T.nif&&`NIF ${T.nif}`, T.rega_api&&F.l.apiario&&`REGA ${T.rega_api}`].filter(Boolean).join(" · ") || "", 14, 27);
-  doc.autoTable({startY:32, body:[["Producto", F.l.producto], ["Origen", F.l.origen], ["Fecha de cosecha o extracción", fdate(F.l.fecha)], ["Cantidad", `${fnum(F.l.kg)} kg`], ["Vendido", `${fnum(F.l.vendido)} kg`], ["Existencias", `${fnum(F.l.queda)} kg`]], theme:"grid", styles:{fontSize:10}, columnStyles:{0:{fontStyle:"bold", cellWidth:60}}, margin:{left:14, right:14}});
+  doc.autoTable({startY:36, body:[["Producto", F.l.producto], ["Origen", F.l.origen], ["Fecha de cosecha o extracción", fdate(F.l.fecha)], ["Cantidad", `${fnum(F.l.kg)} kg`], ["Vendido", `${fnum(F.l.vendido)} kg`], ["Existencias", `${fnum(F.l.queda)} kg`]], theme:"grid", styles:{fontSize:10}, columnStyles:{0:{fontStyle:"bold", cellWidth:60}}, margin:{left:14, right:14}});
   doc.autoTable({startY:doc.lastAutoTable.finalY+6, head:[["Fecha","Operación","Detalle","Control"]], body:F.E.map(e=>[fdate(e.fecha), e.tipo, e.txt, (e.nota||"") + (e.ok?"":" · REVISAR")]), theme:"grid", styles:{fontSize:8.5}, headStyles:{fillColor:verde}, margin:{left:14, right:14}});
   doc.autoTable({startY:doc.lastAutoTable.finalY+6, head:[["Fecha","Cliente","NIF","Factura","Cantidad"]], body:F.ventas.map(({v,l})=>{const c=DB.clientes.find(x=>x.id===v.cliente)||{};return [fdate(v.fecha), c.nombre||"", c.nif||"", v.numero||"", `${fnum(l.cantidad)} ${l.unidad||""}`];}), theme:"grid", styles:{fontSize:8.5}, headStyles:{fillColor:verde}, margin:{left:14, right:14}});
   try { doc.save(`trazabilidad-${cod}.pdf`); toast("PDF descargado"); } catch(e) { toast("No se pudo descargar el PDF en este navegador"); }
