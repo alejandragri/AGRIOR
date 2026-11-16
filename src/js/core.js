@@ -336,7 +336,7 @@ function viewInicio(){
   </div>
   <div class="grid2">
     <section class="panel"><h2>Avisos</h2>
-      ${A.length ? `<ul class="alerts">${A.map(a=>`<li class="${a.lv}" data-go="${a.mod}" data-tab="${a.tab}" style="cursor:pointer"><div><strong>${esc(a.t)}</strong><small>${esc(a.s)}</small></div>${a.d?`<span class="when">hasta ${fdate(a.d)}</span>`:""}</li>`).join("")}</ul>` : `<p class="muted">No hay avisos pendientes.</p>`}
+      ${A.length ? `<ul class="alerts">${A.map(a=>`<li class="${a.lv}" data-go="${a.mod}" data-tab="${a.tab}" style="cursor:pointer"><div><strong>${esc(a.t)}</strong><small>${esc(a.s)}</small></div>${a.d?`<span class="when">${a.wx?"":"hasta "}${fdate(a.d)}</span>`:""}</li>`).join("")}</ul>` : `<p class="muted">No hay avisos pendientes.</p>`}
     </section>
     <section class="panel"><h2>Registrar rápido</h2>
       <div class="toolbar">
