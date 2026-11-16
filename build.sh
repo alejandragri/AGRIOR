@@ -2,7 +2,7 @@
 # Genera dist/ (PWA instalable, librerías locales) y build/artifact.html (vista previa con librerías de cdnjs)
 set -e
 cd "$(dirname "$0")"
-JS="src/js/core.js src/js/inventario.js src/js/costes.js src/js/agenda.js src/js/adjuntos.js src/js/mapa.js src/js/sigpac.js src/js/tiempo.js src/js/informes.js src/js/guiado.js src/js/partes.js src/js/taller.js src/js/combustible.js src/js/hoy.js src/js/ventas.js src/js/jornada.js src/js/oficial.js src/js/voz.js src/js/sync.js src/js/zz-boot.js"
+JS="src/js/core.js src/js/inventario.js src/js/costes.js src/js/agenda.js src/js/adjuntos.js src/js/mapa.js src/js/sigpac.js src/js/pac.js src/js/tiempo.js src/js/informes.js src/js/guiado.js src/js/partes.js src/js/taller.js src/js/combustible.js src/js/hoy.js src/js/ventas.js src/js/jornada.js src/js/oficial.js src/js/voz.js src/js/sync.js src/js/zz-boot.js"
 mkdir -p dist/vendor build
 python3 - "$JS" <<'PY'
 import sys, re
