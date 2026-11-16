@@ -259,7 +259,6 @@ ol.traz-line li span{display:block;color:var(--muted, inherit)}
 [hidden]{display:none !important}
 /* Aviso de sin cobertura */
 .netbar{position:fixed;left:0;right:0;top:0;z-index:60;padding:8px 14px;background:var(--warn-bg);color:var(--fg);border-bottom:1px solid var(--line);font-size:.9rem;text-align:center}
-body.sin-red .app{padding-top:40px}
 
 /* required styles */
 
@@ -4459,7 +4458,7 @@ function barraRed(){
   if (!b) { b = document.createElement("div"); b.id = "netBar"; b.className = "netbar no-print"; b.setAttribute("role", "status"); document.body.appendChild(b); }
   const off = !navigator.onLine;
   if (off) b.innerHTML = `<strong>Sin cobertura.</strong> Puedes seguir apuntando: se guarda en este dispositivo${SY.session ? " y se subirá solo al volver la conexión" : ""}.${syPend && SY.session ? " <span class=\"pill warn\">Cambios por subir</span>" : ""}`;
-  b.hidden = !off; document.body.classList.toggle("sin-red", off);
+  b.hidden = !off; document.body.style.paddingTop = off ? `${b.offsetHeight}px` : "";
 }
 window.addEventListener("online", () => { barraRed(); toast(syPend && SY.session ? "Conexión recuperada. Subiendo cambios…" : "Conexión recuperada"); });
 window.addEventListener("offline", barraRed);

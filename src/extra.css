@@ -121,4 +121,3 @@ ol.traz-line li span{display:block;color:var(--muted, inherit)}
 [hidden]{display:none !important}
 /* Aviso de sin cobertura */
 .netbar{position:fixed;left:0;right:0;top:0;z-index:60;padding:8px 14px;background:var(--warn-bg);color:var(--fg);border-bottom:1px solid var(--line);font-size:.9rem;text-align:center}
-body.sin-red .app{padding-top:40px}

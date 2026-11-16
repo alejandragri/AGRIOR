@@ -155,7 +155,7 @@ function barraRed(){
   if (!b) { b = document.createElement("div"); b.id = "netBar"; b.className = "netbar no-print"; b.setAttribute("role", "status"); document.body.appendChild(b); }
   const off = !navigator.onLine;
   if (off) b.innerHTML = `<strong>Sin cobertura.</strong> Puedes seguir apuntando: se guarda en este dispositivo${SY.session ? " y se subirá solo al volver la conexión" : ""}.${syPend && SY.session ? " <span class=\"pill warn\">Cambios por subir</span>" : ""}`;
-  b.hidden = !off; document.body.classList.toggle("sin-red", off);
+  b.hidden = !off; document.body.style.paddingTop = off ? `${b.offsetHeight}px` : "";
 }
 window.addEventListener("online", () => { barraRed(); toast(syPend && SY.session ? "Conexión recuperada. Subiendo cambios…" : "Conexión recuperada"); });
 window.addEventListener("offline", barraRed);
