@@ -1,6 +1,6 @@
 # Mi Explotación
 
-App web offline (PWA) para gestionar una explotación agrícola, ganadera y apícola: parcelas y mapa (PNOA, Catastro, SIGPAC), almacén, partes de trabajo, taller, combustible, ventas y facturas, jornada, agenda, informes PDF y exportaciones oficiales. Los datos se guardan en el propio dispositivo y, si se activa, se sincronizan con Supabase.
+App web offline (PWA) para gestionar una explotación agrícola, ganadera y apícola: parcelas y mapa (PNOA, Catastro, SIGPAC), almacén, partes de trabajo, taller, combustible, ventas y facturas, escaneo de facturas y albaranes, precios de lonja, comparación de campañas, jornada, agenda, informes PDF y exportaciones oficiales. Los datos se guardan en el propio dispositivo y, si se activa, se sincronizan con Supabase.
 
 **App publicada:** https://alejandragri.github.io/AGRIOR/
 
@@ -11,7 +11,7 @@ App web offline (PWA) para gestionar una explotación agrícola, ganadera y apí
 
 ## Estructura
 
-- `src/` — código fuente: `shell.html`, `extra.css`, `js/*.js` (un archivo por módulo), `vendor/` (Leaflet, jsPDF), `sw.js`, `manifest.webmanifest`, `icon.svg`.
+- `src/` — código fuente: `shell.html`, `extra.css`, `js/*.js` (un archivo por módulo), `vendor/` (Leaflet, jsPDF y, en `vendor/ocr/`, Tesseract.js con el idioma español para leer facturas en el propio móvil; licencia Apache 2.0), `sw.js`, `manifest.webmanifest`, `icon.svg`.
 - `build.sh` — compila `src/` en `dist/` (un solo `index.html` con las librerías locales) y en `build/artifact.html` (vista previa).
 - `dist/` — la app compilada, lista para servir.
 
